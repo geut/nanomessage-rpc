@@ -1,5 +1,5 @@
 {
-  "name": "@geut/nanomessage-rpc",
+  "name": "nanomessage-rpc",
   "version": "0.0.1",
   "description": "Tiny rpc on top of nanomessage",
   "main": "index.js",

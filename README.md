@@ -1,0 +1,126 @@
+# nanomessage-rpc
+
+[![Build Status](https://travis-ci.com/geut/nanomessage-rpc.svg?branch=master)](https://travis-ci.com/geut/nanomessage-rpc)
+[![JavaScript Style Guide](https://img.shields.io/badge/code_style-standard-brightgreen.svg)](https://standardjs.com)
+[![standard-readme compliant](https://img.shields.io/badge/readme%20style-standard-brightgreen.svg?style=flat-square)](https://github.com/RichardLitt/standard-readme)
+
+> Tiny :hatched_chick: RPC on top of nanomessage
+
+## <a name="install"></a> Install
+
+```
+$ npm install nanomessage-rpc
+```
+
+## <a name="usage"></a> Usage
+
+```javascript
+const nanorpc = require('nanomessage-rpc')
+
+;(async () => {
+  const rpc = nanorpc(socket, opts)
+
+  await rpc
+    .action('sum', ({ a, b }) => a + b)
+    .action('subtract', ({ a, b }) => a - b)
+    .open()
+
+  // from the other rpc socket side
+  const result = await rpc.call('sum', { a: 2, b: 2 }) // 4
+})()
+```
+
+Also it has an [emittery](https://github.com/sindresorhus/emittery) instance to emit events through the socket.
+
+```javascript
+;(async () => {
+  const rpc = nanorpc(socket, opts)
+
+  await rpc.open()
+
+  rpc.on('ping', () => {
+    console.log('ping')
+  })
+
+  // from the other rpc socket side
+  const result = await rpc.emit('ping') // 4
+})()
+```
+
+#### `const rpc = nanorpc(socket, options)`
+
+Create a new nanomessage-rpc.
+
+Options include:
+
+- `timeout: 10 * 1000`: Time to wait for the response of a request.
+- `concurrency: Infinity`: Defines how many requests do you want to run in concurrent.
+- `codec: JSON`: Defines a [compatible codec](https://github.com/mafintosh/codecs) to encode/decode messages in nanomessage.
+
+#### `rpc.open() -> Promise`
+
+Opens nanomessage and start listening for incoming data.
+
+#### `rpc.close() -> Promise`
+
+Closes nanomessage and unsubscribe from incoming data.
+
+#### `rpc.action(actionName, handler)`
+
+Defines a rpc action and handler for incoming requests.
+
+- `actionName: string`: Name of the action.
+- `handler: function`: Handler, coulb be `async`.
+
+#### `rpc.actions(actions)`
+
+Shortcut to define multiple actions.
+
+- `actions: { actionName: handler, ... }`: List of actions.
+
+#### `rpc.call(actionName) -> Promise<Response>`
+
+Call an action an wait for the response.
+
+- `actionName: string`: Action name.
+
+#### `rpc.on(eventName, handler) -> unsubscribe`
+
+Subscribe to a RPC event.
+
+Returns an unsubscribe method.
+
+#### `rpc.once(eventName) -> Promise`
+
+Subscribe to a RPC event only once. It will be unsubscribed after the first event.
+
+Returns a promise for the event data when eventName is emitted.
+
+#### `rpc.off(eventName)`
+
+Remove a RPC event subscription.
+
+#### `rpc.events(eventName)`
+
+Get an async iterator which buffers data each time a RPC event is emitted.
+
+Call `return()` on the iterator to remove the subscription.
+
+```javascript
+for await (const data of rpc.events('ping')) {
+  console.log(data)
+  if (disconnected) break
+}
+```
+
+## <a name="issues"></a> Issues
+
+:bug: If you found an issue we encourage you to report it on [github](https://github.com/geut/nanomessage-rpc/issues). Please specify your OS and the actions to reproduce it.
+
+## <a name="contribute"></a> Contributing
+
+:busts_in_silhouette: Ideas and contributions to the project are welcome. You must follow this [guideline](https://github.com/geut/nanomessage-rpc/blob/master/CONTRIBUTING.md).
+
+## License
+
+MIT © A [**GEUT**](http://geutstudio.com/) project

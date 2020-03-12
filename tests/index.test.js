@@ -3,6 +3,8 @@ const duplexify = require('duplexify')
 
 const nanorpc = require('..')
 
+const { errors: { ERR_ACTION_RESPONSE_ERROR, ERR_ACTION_NAME_MISSING } } = nanorpc
+
 const createConnection = ({ alice: aliceOpts, bob: bobOpts } = {}) => {
   const t1 = through()
   const t2 = through()
@@ -22,7 +24,7 @@ test('actions', async () => {
   await alice.actions({
     sum: ({ a, b }) => a + b,
     error: () => {
-      throw new Error('something went wrong')
+      throw new Error('wrong')
     }
   }).open()
 
@@ -32,7 +34,20 @@ test('actions', async () => {
 
   await expect(alice.call('subtract', { a: 2, b: 2 })).resolves.toBe(0)
   await expect(bob.call('sum', { a: 2, b: 2 })).resolves.toBe(4)
-  await expect(bob.call('error')).rejects.toThrow('something went wrong')
+
+  try {
+    await bob.call('error')
+  } catch (err) {
+    expect(err).toBeInstanceOf(ERR_ACTION_RESPONSE_ERROR)
+    expect(err.message).toBe('wrong')
+  }
+
+  try {
+    await bob.call('foo')
+  } catch (err) {
+    expect(err).toBeInstanceOf(ERR_ACTION_NAME_MISSING)
+    expect(err.message).toBe('foo')
+  }
 })
 
 test('events', async () => {

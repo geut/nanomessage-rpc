@@ -3,7 +3,7 @@ const eos = require('end-of-stream')
 const jsonCodec = require('buffer-json-encoding')
 const nanomessage = require('nanomessage')
 const assert = require('nanocustomassert')
-const { encodeError, decodeError } = require('./lib/errors')
+const { encodeError, decodeError, ERR_ACTION_NAME_MISSING, ERR_ACTION_RESPONSE_ERROR } = require('./lib/errors')
 
 const kNanomessage = Symbol('rpc.nanomessage')
 const kOnmessage = Symbol('rpc.onmessage')
@@ -66,8 +66,8 @@ class RPC {
     const result = await this[kNanomessage].request({ action: name, data })
 
     if (result.err) {
-      const ErrorDecoded = decodeError(result.code, result.message)
-      throw new ErrorDecoded(...result.args)
+      const ErrorDecoded = decodeError(result.code)
+      throw new ErrorDecoded(result.message)
     }
 
     return result.data
@@ -127,18 +127,22 @@ class RPC {
     const action = this[kActions].get(message.action)
 
     if (!action) {
-      return encodeError('ERR_ACTION_NAME_MISSING', 'missing action for: %s', message.action)
+      return encodeError(new ERR_ACTION_NAME_MISSING(message.action))
     }
 
     try {
       const result = await action(message.data)
       return { action: message.action, data: result }
     } catch (err) {
-      return encodeError(err.code || 'ERR_ACTION_RESPONSE_ERROR', err.message)
+      const responseError = new ERR_ACTION_RESPONSE_ERROR(err.message)
+      if (err.code) {
+        responseError.code = err.code
+      }
+      return encodeError(responseError)
     }
   }
 }
 
 module.exports = (...args) => new RPC(...args)
 module.exports.RPC = RPC
-module.exports.errors = require('./lib/errors')
+module.exports.errors = { ERR_ACTION_NAME_MISSING, ERR_ACTION_RESPONSE_ERROR }

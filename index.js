@@ -2,9 +2,9 @@ const Emittery = require('emittery')
 const eos = require('end-of-stream')
 const jsonCodec = require('buffer-json-encoding')
 const nanomessage = require('nanomessage')
+const assert = require('nanocustomassert')
 const { encodeError, decodeError } = require('./lib/errors')
 
-const kSocket = Symbol('rpc.socket')
 const kNanomessage = Symbol('rpc.nanomessage')
 const kOnmessage = Symbol('rpc.onmessage')
 const kSend = Symbol('rpc.send')
@@ -16,7 +16,7 @@ class RPC {
   constructor (socket, opts = {}) {
     const { codec = jsonCodec } = opts
 
-    this[kSocket] = socket
+    this.socket = socket
     this[kNanomessage] = nanomessage({
       codec,
       ...opts,
@@ -36,23 +36,20 @@ class RPC {
     })
   }
 
-  get socket () {
-    return this[kSocket]
-  }
-
   open () {
     return this[kNanomessage].open()
   }
 
-  close () {
-    return Promise.all([
+  async close () {
+    await Promise.all([
       new Promise(resolve => {
-        if (this[kSocket].destroyed) return resolve()
-        eos(this[kSocket], () => resolve())
-        this[kSocket].destroy()
+        if (this.socket.destroyed) return resolve()
+        eos(this.socket, () => resolve())
+        this.socket.destroy()
       }),
       this[kNanomessage].close()
     ])
+    process.nextTick(() => this[kEmittery].emit('rpc-closed'))
   }
 
   action (name, handler) {
@@ -77,7 +74,13 @@ class RPC {
   }
 
   emit (name, data) {
-    return this[kNanomessage].send({ event: name, data })
+    assert(typeof name === 'string', 'name must be a valid string')
+
+    if (name.startsWith('rpc-')) {
+      return this[kEmittery].emit(name, data)
+    } else {
+      return this[kNanomessage].send({ event: name, data })
+    }
   }
 
   on (...args) {
@@ -102,17 +105,17 @@ class RPC {
         await this[kEmittery].emit('rpc-data', data)
         await ondata(data)
       } catch (err) {
-        await this[kEmittery].emit('rpc-subscribe-error', err)
+        await this[kEmittery].emit('rpc-error', err)
       }
     }
 
-    this[kSocket].on('data', reader)
-    return () => this[kSocket].removeListener('data', reader)
+    this.socket.on('data', reader)
+    return () => this.socket.removeListener('data', reader)
   }
 
   async [kSend] (chunk) {
-    if (this[kSocket].destroyed) return
-    this[kSocket].write(chunk)
+    if (this.socket.destroyed) return
+    this.socket.write(chunk)
   }
 
   async [kOnmessage] (message) {

@@ -66,8 +66,8 @@ class RPC {
     const result = await this[kNanomessage].request({ action: name, data })
 
     if (result.err) {
-      const ErrorDecoded = decodeError(result.code)
-      throw new ErrorDecoded(result.message)
+      const ErrorDecoded = decodeError(result.code, result.unformatMessage)
+      throw new ErrorDecoded(...result.args)
     }
 
     return result.data
@@ -134,11 +134,10 @@ class RPC {
       const result = await action(message.data)
       return { action: message.action, data: result }
     } catch (err) {
-      const responseError = new ERR_ACTION_RESPONSE_ERROR(err.message)
-      if (err.code) {
-        responseError.code = err.code
+      if (err.isNanoerror) {
+        return encodeError(err)
       }
-      return encodeError(responseError)
+      return encodeError(new ERR_ACTION_RESPONSE_ERROR(err.message))
     }
   }
 }

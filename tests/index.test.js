@@ -1,5 +1,6 @@
 const through = require('through2')
 const duplexify = require('duplexify')
+const nanoerror = require('nanoerror')
 
 const nanorpc = require('..')
 
@@ -21,10 +22,14 @@ const createConnection = ({ alice: aliceOpts, bob: bobOpts } = {}) => {
 test('actions', async () => {
   const { alice, bob } = createConnection()
 
+  const CUSTOM_ERROR = nanoerror('CUSTOM_ERROR', 'error in %s')
   await alice.actions({
     sum: ({ a, b }) => a + b,
     error: () => {
       throw new Error('wrong')
+    },
+    customError: () => {
+      throw new CUSTOM_ERROR('bar')
     }
   }).open()
 
@@ -43,10 +48,17 @@ test('actions', async () => {
   }
 
   try {
+    await bob.call('customError')
+  } catch (err) {
+    expect(CUSTOM_ERROR.equals(err)).toBe(true)
+    expect(err.message).toBe('error in bar')
+  }
+
+  try {
     await bob.call('foo')
   } catch (err) {
     expect(err).toBeInstanceOf(ERR_ACTION_NAME_MISSING)
-    expect(err.message).toBe('foo')
+    expect(err.message).toBe('missing action handler for: foo')
   }
 })
 

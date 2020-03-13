@@ -20,7 +20,7 @@
     "emittery": "^0.6.0",
     "end-of-stream": "^1.4.4",
     "nanocustomassert": "^1.0.0",
-    "nanoerror": "^1.0.0",
+    "nanoerror": "^1.1.0",
     "nanomessage": "^5.1.0"
   },
   "devDependencies": {

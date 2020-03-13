@@ -12,7 +12,7 @@ const kSubscribe = Symbol('rpc.subscribe')
 const kActions = Symbol('rpc.actions')
 const kEmittery = Symbol('rpc.emittery')
 
-class RPC {
+class NanomessageRPC {
   constructor (socket, opts = {}) {
     const { codec = jsonCodec } = opts
 
@@ -142,6 +142,6 @@ class RPC {
   }
 }
 
-module.exports = (...args) => new RPC(...args)
-module.exports.RPC = RPC
+module.exports = (...args) => new NanomessageRPC(...args)
+module.exports.RPC = NanomessageRPC
 module.exports.errors = { ERR_ACTION_NAME_MISSING, ERR_ACTION_RESPONSE_ERROR }

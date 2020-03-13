@@ -143,5 +143,5 @@ class NanomessageRPC {
 }
 
 module.exports = (...args) => new NanomessageRPC(...args)
-module.exports.RPC = NanomessageRPC
+module.exports.NanomessageRPC = NanomessageRPC
 module.exports.errors = { ERR_ACTION_NAME_MISSING, ERR_ACTION_RESPONSE_ERROR }

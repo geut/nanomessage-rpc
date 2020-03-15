@@ -75,3 +75,19 @@ test('events', async () => {
 
   await expect(finish).resolves.toEqual(['hello', 'hi'])
 })
+
+test('cancel', async () => {
+  const { alice, bob } = createConnection()
+
+  await alice.actions({
+    sum: ({ a, b }) => a + b
+  }).open()
+
+  await bob.actions({
+    subtract: ({ a, b }) => a - b
+  }).open()
+
+  const request = alice.call('subtract', { a: 2, b: 2 })
+  process.nextTick(() => request.cancel())
+  await expect(request).rejects.toThrow('request canceled')
+})

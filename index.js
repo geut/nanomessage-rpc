@@ -49,7 +49,7 @@ class NanomessageRPC {
       }),
       this[kNanomessage].close()
     ])
-    process.nextTick(() => this[kEmittery].emit('rpc-closed'))
+    return this[kEmittery].emit('rpc-closed')
   }
 
   action (name, handler) {
@@ -62,15 +62,21 @@ class NanomessageRPC {
     return this
   }
 
-  async call (name, data) {
-    const result = await this[kNanomessage].request({ action: name, data })
+  call (name, data) {
+    const request = this[kNanomessage].request({ action: name, data })
+    const cancel = request.cancel
 
-    if (result.err) {
-      const ErrorDecoded = decodeError(result.code, result.unformatMessage)
-      throw new ErrorDecoded(...result.args)
-    }
+    const promise = request.then((result) => {
+      if (result.err) {
+        const ErrorDecoded = decodeError(result.code, result.unformatMessage)
+        throw new ErrorDecoded(...result.args)
+      } else {
+        return result.data
+      }
+    })
 
-    return result.data
+    promise.cancel = cancel
+    return promise
   }
 
   emit (name, data) {

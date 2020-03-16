@@ -3,6 +3,7 @@ const eos = require('end-of-stream')
 const jsonCodec = require('buffer-json-encoding')
 const nanomessage = require('nanomessage')
 const assert = require('nanocustomassert')
+const { NanoresourcePromise } = require('nanoresource-promise')
 const { encodeError, decodeError, ERR_ACTION_NAME_MISSING, ERR_ACTION_RESPONSE_ERROR } = require('./lib/errors')
 
 const kNanomessage = Symbol('rpc.nanomessage')
@@ -12,8 +13,10 @@ const kSubscribe = Symbol('rpc.subscribe')
 const kActions = Symbol('rpc.actions')
 const kEmittery = Symbol('rpc.emittery')
 
-class NanomessageRPC {
+class NanomessageRPC extends NanoresourcePromise {
   constructor (socket, opts = {}) {
+    super()
+
     const { codec = jsonCodec } = opts
 
     this.socket = socket
@@ -36,22 +39,6 @@ class NanomessageRPC {
     })
   }
 
-  open () {
-    return this[kNanomessage].open()
-  }
-
-  async close () {
-    await Promise.all([
-      new Promise(resolve => {
-        if (this.socket.destroyed) return resolve()
-        eos(this.socket, () => resolve())
-        this.socket.destroy()
-      }),
-      this[kNanomessage].close()
-    ])
-    return this[kEmittery].emit('rpc-closed')
-  }
-
   action (name, handler) {
     this[kActions].set(name, handler)
     return this
@@ -66,21 +53,25 @@ class NanomessageRPC {
     const request = this[kNanomessage].request({ action: name, data })
     const cancel = request.cancel
 
-    const promise = request.then((result) => {
-      if (result.err) {
-        const ErrorDecoded = decodeError(result.code, result.unformatMessage)
-        throw new ErrorDecoded(...result.args)
-      } else {
-        return result.data
-      }
-    })
+    const promise = this.open()
+      .then(() => request)
+      .then((result) => {
+        if (result.err) {
+          const ErrorDecoded = decodeError(result.code, result.unformatMessage)
+          throw new ErrorDecoded(...result.args)
+        } else {
+          return result.data
+        }
+      })
 
     promise.cancel = cancel
     return promise
   }
 
-  emit (name, data) {
+  async emit (name, data) {
     assert(typeof name === 'string', 'name must be a valid string')
+
+    await this.open()
 
     if (name.startsWith('rpc-')) {
       return this[kEmittery].emit(name, data)
@@ -103,6 +94,22 @@ class NanomessageRPC {
 
   events (name) {
     return this[kEmittery].events(name)
+  }
+
+  _open () {
+    return this[kNanomessage].open()
+  }
+
+  async _close () {
+    await Promise.all([
+      new Promise(resolve => {
+        if (this.socket.destroyed) return resolve()
+        eos(this.socket, () => resolve())
+        this.socket.destroy()
+      }),
+      this[kNanomessage].close()
+    ])
+    return this[kEmittery].emit('rpc-closed')
   }
 
   [kSubscribe] (ondata) {

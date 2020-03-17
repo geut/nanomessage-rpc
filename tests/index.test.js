@@ -6,6 +6,8 @@ const nanorpc = require('..')
 
 const { errors: { ERR_ACTION_RESPONSE_ERROR, ERR_ACTION_NAME_MISSING } } = nanorpc
 
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
+
 const createConnection = ({ alice: aliceOpts, bob: bobOpts } = {}) => {
   const t1 = through()
   const t2 = through()
@@ -34,7 +36,10 @@ test('actions', async () => {
   }).open()
 
   await bob.actions({
-    subtract: ({ a, b }) => a - b
+    subtract: async ({ a, b }) => {
+      await delay(500)
+      return a - b
+    }
   }).open()
 
   await expect(alice.call('subtract', { a: 2, b: 2 })).resolves.toBe(0)
@@ -80,7 +85,10 @@ test('cancel', async () => {
   const { alice, bob } = createConnection()
 
   await alice.actions({
-    sum: ({ a, b }) => a + b
+    sum: async ({ a, b }) => {
+      await delay(500)
+      return a + b
+    }
   }).open()
 
   await bob.actions({

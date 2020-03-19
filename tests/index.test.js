@@ -85,17 +85,14 @@ test('cancel', async () => {
   const { alice, bob } = createConnection()
 
   await alice.actions({
-    sum: async ({ a, b }) => {
+    delay: async () => {
       await delay(500)
-      return a + b
     }
   }).open()
 
-  await bob.actions({
-    subtract: ({ a, b }) => a - b
-  }).open()
+  await bob.open()
 
-  const request = alice.call('subtract', { a: 2, b: 2 })
+  const request = bob.call('delay')
   process.nextTick(() => request.cancel())
   await expect(request).rejects.toThrow('request canceled')
 })

@@ -1,6 +1,6 @@
 {
   "name": "nanomessage-rpc",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Tiny rpc on top of nanomessage",
   "main": "index.js",
   "files": [

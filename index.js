@@ -1,4 +1,5 @@
 const Emittery = require('emittery')
+const { Transform } = require('streamx')
 const eos = require('end-of-stream')
 const jsonCodec = require('buffer-json-encoding')
 const nanomessage = require('nanomessage')
@@ -12,16 +13,46 @@ const kSend = Symbol('rpc.send')
 const kSubscribe = Symbol('rpc.subscribe')
 const kActions = Symbol('rpc.actions')
 const kEmittery = Symbol('rpc.emittery')
+const kStream = Symbol('rpc.stream')
+
+class PassThrough extends Transform {
+  _transform (data, callback) {
+    callback(null, data)
+  }
+}
+
+function createStreamIterator (socket, onCloseDestroyStream) {
+  const stream = new PassThrough({
+    destroy (cb) {
+      if (onCloseDestroyStream) {
+        !socket.destroyed && socket.destroy(this._readableState.error || this._writableState.error)
+      } else {
+        socket.unpipe(this)
+      }
+      cb()
+    }
+  })
+
+  socket.pipe(stream)
+
+  eos(socket, (err) => {
+    stream.destroy(err)
+  })
+
+  stream.send = data => socket.write(data)
+
+  return stream
+}
 
 class NanomessageRPC extends NanoresourcePromise {
   constructor (socket, opts = {}) {
     super()
 
-    const { codec = jsonCodec } = opts
+    const { valueEncoding = jsonCodec, onCloseDestroyStream = true } = opts
 
-    this.socket = socket
+    this[kStream] = createStreamIterator(socket, onCloseDestroyStream)
     this[kNanomessage] = nanomessage({
-      codec,
+      valueEncoding,
       ...opts,
       onMessage: this[kOnmessage].bind(this),
       send: this[kSend].bind(this),
@@ -30,12 +61,11 @@ class NanomessageRPC extends NanoresourcePromise {
     this[kEmittery] = new Emittery()
     this[kActions] = new Map()
 
-    eos(socket, () => {
-      this.close().catch(err => {
-        process.nextTick(() => {
-          throw err
-        })
-      })
+    this[kStream].once('close', () => {
+      this
+        .close()
+        .catch(err => this[kEmittery].emit('rpc-error', err))
+        .catch(() => {})
     })
   }
 
@@ -69,15 +99,11 @@ class NanomessageRPC extends NanoresourcePromise {
   }
 
   async emit (name, data) {
-    assert(typeof name === 'string', 'name must be a valid string')
+    assert(typeof name === 'string' && !name.startsWith('rpc-'), 'name must be a valid string and should not start with "rpc-"')
 
     await this.open()
 
-    if (name.startsWith('rpc-')) {
-      return this[kEmittery].emit(name, data)
-    } else {
-      return this[kNanomessage].send({ event: name, data })
-    }
+    return this[kNanomessage].send({ event: name, data })
   }
 
   on (...args) {
@@ -103,9 +129,9 @@ class NanomessageRPC extends NanoresourcePromise {
   async _close () {
     await Promise.all([
       new Promise(resolve => {
-        if (this.socket.destroyed) return resolve()
-        eos(this.socket, () => resolve())
-        this.socket.destroy()
+        if (this[kStream].destroyed) return resolve()
+        eos(this[kStream], () => resolve())
+        this[kStream].destroy()
       }),
       this[kNanomessage].close()
     ])
@@ -113,22 +139,28 @@ class NanomessageRPC extends NanoresourcePromise {
   }
 
   [kSubscribe] (ondata) {
-    const reader = async (data) => {
-      try {
-        await this[kEmittery].emit('rpc-data', data)
-        await ondata(data)
-      } catch (err) {
-        await this[kEmittery].emit('rpc-error', err)
+    let done = false
+    ;(async () => {
+      for await (const data of this[kStream]) {
+        try {
+          if (done) break
+          await this[kEmittery].emit('rpc-data', data)
+          if (done) break
+          await ondata(data)
+        } catch (err) {
+          await this[kEmittery].emit('rpc-error', err)
+        }
       }
-    }
+    })().catch(() => {})
 
-    this.socket.on('data', reader)
-    return () => this.socket.removeListener('data', reader)
+    return () => {
+      done = true
+    }
   }
 
   async [kSend] (chunk) {
-    if (this.socket.destroyed) return
-    this.socket.write(chunk)
+    if (this[kStream].destroyed) return
+    this[kStream].send(chunk)
   }
 
   async [kOnmessage] (message) {

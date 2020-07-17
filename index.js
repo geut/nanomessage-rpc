@@ -152,7 +152,7 @@ class NanomessageRPC extends NanoresourcePromise {
 
   async [kOnmessage] (message) {
     if (message.event) {
-      this[kEmittery].emit(message.event, message.data).catch((err) => {
+      await this[kEmittery].emit(message.event, message.data).catch((err) => {
         process.nextTick(() => this.ee.emit('error', err))
       })
       return

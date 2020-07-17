@@ -1,28 +1,13 @@
-const through = require('through2')
-const duplexify = require('duplexify')
 const nanoerror = require('nanoerror')
 
-const nanorpc = require('..')
+const create = require('./create')
 
-const { errors: { ERR_ACTION_RESPONSE_ERROR, ERR_ACTION_NAME_MISSING } } = nanorpc
+const { errors: { NRPC_ERR_ACTION_RESPONSE_ERROR, NRPC_ERR_ACTION_NAME_MISSING } } = require('..')
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
 
-const createConnection = ({ alice: aliceOpts, bob: bobOpts } = {}) => {
-  const t1 = through()
-  const t2 = through()
-
-  const stream1 = duplexify(t1, t2)
-  const alice = nanorpc(stream1, aliceOpts)
-
-  const stream2 = duplexify(t2, t1)
-  const bob = nanorpc(stream2, bobOpts)
-
-  return { alice, bob }
-}
-
 test('actions', async () => {
-  const { alice, bob } = createConnection()
+  const { alice, bob } = create()
 
   const CUSTOM_ERROR = nanoerror('CUSTOM_ERROR', 'error in %s')
   await alice.actions({
@@ -48,7 +33,7 @@ test('actions', async () => {
   try {
     await bob.call('error')
   } catch (err) {
-    expect(err).toBeInstanceOf(ERR_ACTION_RESPONSE_ERROR)
+    expect(err).toBeInstanceOf(NRPC_ERR_ACTION_RESPONSE_ERROR)
     expect(err.message).toBe('wrong')
   }
 
@@ -62,13 +47,13 @@ test('actions', async () => {
   try {
     await bob.call('foo')
   } catch (err) {
-    expect(err).toBeInstanceOf(ERR_ACTION_NAME_MISSING)
+    expect(err).toBeInstanceOf(NRPC_ERR_ACTION_NAME_MISSING)
     expect(err.message).toBe('missing action handler for: foo')
   }
 })
 
 test('events', async () => {
-  const { alice, bob } = createConnection()
+  const { alice, bob } = create()
 
   await alice.open()
   await bob.open()
@@ -82,7 +67,7 @@ test('events', async () => {
 })
 
 test('cancel', async () => {
-  const { alice, bob } = createConnection()
+  const { alice, bob } = create()
 
   await alice.actions({
     delay: async () => {

@@ -1,11 +1,17 @@
+const { EventEmitter } = require('events')
 const Emittery = require('emittery')
-const { Transform } = require('streamx')
 const eos = require('end-of-stream')
-const jsonCodec = require('buffer-json-encoding')
 const nanomessage = require('nanomessage')
 const assert = require('nanocustomassert')
 const { NanoresourcePromise } = require('nanoresource-promise')
-const { encodeError, decodeError, ERR_ACTION_NAME_MISSING, ERR_ACTION_RESPONSE_ERROR } = require('./lib/errors')
+const {
+  encodeError,
+  decodeError,
+  NRPC_ERR_ACTION_NAME_MISSING,
+  NRPC_ERR_ACTION_RESPONSE_ERROR,
+  NRPC_ERR_CLOSE,
+  NRPC_ERR_NOT_OPEN
+} = require('./lib/errors')
 
 const kNanomessage = Symbol('rpc.nanomessage')
 const kOnmessage = Symbol('rpc.onmessage')
@@ -13,46 +19,19 @@ const kSend = Symbol('rpc.send')
 const kSubscribe = Symbol('rpc.subscribe')
 const kActions = Symbol('rpc.actions')
 const kEmittery = Symbol('rpc.emittery')
-const kStream = Symbol('rpc.stream')
-
-class PassThrough extends Transform {
-  _transform (data, callback) {
-    callback(null, data)
-  }
-}
-
-function createStreamIterator (socket, onCloseDestroyStream) {
-  const stream = new PassThrough({
-    destroy (cb) {
-      if (onCloseDestroyStream) {
-        !socket.destroyed && socket.destroy(this._readableState.error || this._writableState.error)
-      } else {
-        socket.unpipe(this)
-      }
-      cb()
-    }
-  })
-
-  socket.pipe(stream)
-
-  eos(socket, (err) => {
-    stream.destroy(err)
-  })
-
-  stream.send = data => socket.write(data)
-
-  return stream
-}
+const kOnCloseDestroyStream = Symbol('rpc.onclosedestroystream')
+const kFastCheckOpen = Symbol('rpc.fastcheckopen')
 
 class NanomessageRPC extends NanoresourcePromise {
   constructor (socket, opts = {}) {
     super()
 
-    const { valueEncoding = jsonCodec, onCloseDestroyStream = true } = opts
+    const { onCloseDestroyStream = true, onError = () => {} } = opts
 
-    this[kStream] = createStreamIterator(socket, onCloseDestroyStream)
+    this.socket = socket
+    this.ee = new EventEmitter()
+    this[kOnCloseDestroyStream] = onCloseDestroyStream
     this[kNanomessage] = nanomessage({
-      valueEncoding,
       ...opts,
       onMessage: this[kOnmessage].bind(this),
       send: this[kSend].bind(this),
@@ -61,12 +40,21 @@ class NanomessageRPC extends NanoresourcePromise {
     this[kEmittery] = new Emittery()
     this[kActions] = new Map()
 
-    this[kStream].once('close', () => {
+    this._onError = onError
+
+    this.ee.on('error', err => {
+      this._onError(err)
+    })
+
+    eos(socket, () => {
       this
         .close()
-        .catch(err => this[kEmittery].emit('rpc-error', err))
-        .catch(() => {})
+        .catch(err => process.nextTick(() => this.ee.emit('error', err)))
     })
+  }
+
+  onError (cb) {
+    this._onError = cb
   }
 
   action (name, handler) {
@@ -83,7 +71,7 @@ class NanomessageRPC extends NanoresourcePromise {
     const request = this[kNanomessage].request({ action: name, data })
     const cancel = request.cancel
 
-    const promise = this.open()
+    const promise = this[kFastCheckOpen]()
       .then(() => request)
       .then((result) => {
         if (result.err) {
@@ -98,12 +86,11 @@ class NanomessageRPC extends NanoresourcePromise {
     return promise
   }
 
-  async emit (name, data) {
-    assert(typeof name === 'string' && !name.startsWith('rpc-'), 'name must be a valid string and should not start with "rpc-"')
+  emit (name, data) {
+    assert(typeof name === 'string', 'name must be a valid string')
 
-    await this.open()
-
-    return this[kNanomessage].send({ event: name, data })
+    return this[kFastCheckOpen]()
+      .then(() => this[kNanomessage].send({ event: name, data }))
   }
 
   on (...args) {
@@ -122,57 +109,59 @@ class NanomessageRPC extends NanoresourcePromise {
     return this[kEmittery].events(name)
   }
 
-  _open () {
-    return this[kNanomessage].open()
+  async _open () {
+    await this[kNanomessage].open()
+    this.ee.emit('opened')
   }
 
   async _close () {
     await Promise.all([
       new Promise(resolve => {
-        if (this[kStream].destroyed) return resolve()
-        eos(this[kStream], () => resolve())
-        this[kStream].destroy()
+        if (this.socket.destroyed || !this[kOnCloseDestroyStream]) return resolve()
+        eos(this.socket, () => resolve())
+        this.socket.destroy()
       }),
       this[kNanomessage].close()
     ])
-    return this[kEmittery].emit('rpc-closed')
+    this.ee.emit('closed')
+  }
+
+  async [kFastCheckOpen] () {
+    if (this.closed || this.closing) throw new NRPC_ERR_CLOSE()
+    if (this.opening) return this.open()
+    if (!this.opened) throw new NRPC_ERR_NOT_OPEN()
   }
 
   [kSubscribe] (ondata) {
-    let done = false
-    ;(async () => {
-      for await (const data of this[kStream]) {
-        try {
-          if (done) break
-          await this[kEmittery].emit('rpc-data', data)
-          if (done) break
-          await ondata(data)
-        } catch (err) {
-          await this[kEmittery].emit('rpc-error', err)
-        }
+    const reader = (data) => {
+      try {
+        ondata(data)
+      } catch (err) {
+        process.nextTick(() => this.ee.emit('error', err))
       }
-    })().catch(() => {})
-
-    return () => {
-      done = true
     }
+
+    this.socket.on('data', reader)
+    return () => this.socket.removeListener('data', reader)
   }
 
   async [kSend] (chunk) {
-    if (this[kStream].destroyed) return
-    this[kStream].send(chunk)
+    if (this.socket.destroyed) return
+    this.socket.write(chunk)
   }
 
   async [kOnmessage] (message) {
     if (message.event) {
-      await this[kEmittery].emit(message.event, message.data)
+      this[kEmittery].emit(message.event, message.data).catch((err) => {
+        process.nextTick(() => this.ee.emit('error', err))
+      })
       return
     }
 
     const action = this[kActions].get(message.action)
 
     if (!action) {
-      return encodeError(new ERR_ACTION_NAME_MISSING(message.action))
+      return encodeError(new NRPC_ERR_ACTION_NAME_MISSING(message.action))
     }
 
     try {
@@ -182,11 +171,11 @@ class NanomessageRPC extends NanoresourcePromise {
       if (err.isNanoerror) {
         return encodeError(err)
       }
-      return encodeError(new ERR_ACTION_RESPONSE_ERROR(err.message))
+      return encodeError(new NRPC_ERR_ACTION_RESPONSE_ERROR(err.message))
     }
   }
 }
 
 module.exports = (...args) => new NanomessageRPC(...args)
 module.exports.NanomessageRPC = NanomessageRPC
-module.exports.errors = { ERR_ACTION_NAME_MISSING, ERR_ACTION_RESPONSE_ERROR }
+module.exports.errors = { NRPC_ERR_ACTION_NAME_MISSING, NRPC_ERR_ACTION_RESPONSE_ERROR, NRPC_ERR_CLOSE, NRPC_ERR_NOT_OPEN }

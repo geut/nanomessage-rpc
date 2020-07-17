@@ -8,7 +8,7 @@
     "index.js"
   ],
   "scripts": {
-    "start": "node index.js",
+    "benchmark": "node benchmark.js",
     "test": "jest --passWithNoTests",
     "posttest": "npm run lint",
     "lint": "xd-ns \"**/*.js\"",
@@ -16,22 +16,20 @@
     "prepublishOnly": "npm test"
   },
   "dependencies": {
-    "buffer-json-encoding": "^1.0.2",
     "emittery": "^0.6.0",
     "end-of-stream": "^1.4.4",
     "nanocustomassert": "^1.0.0",
     "nanoerror": "^1.1.0",
-    "nanomessage": "^6.0.0",
-    "nanoresource-promise": "^2.0.0",
-    "streamx": "^2.6.4"
+    "nanomessage": "^7.0.0",
+    "nanoresource-promise": "^2.0.0"
   },
   "devDependencies": {
     "@geut/chan": "^2.0.0",
     "@geut/xd": "^1.5.0",
-    "duplexify": "^4.1.1",
     "jest": "^24.8.0",
+    "nanobench": "^2.1.1",
     "standard": "^14.3.1",
-    "through2": "^3.0.1"
+    "streamx": "^2.6.4"
   },
   "jest": {
     "testMatch": [

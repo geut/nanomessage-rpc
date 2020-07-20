@@ -20,8 +20,9 @@
     "end-of-stream": "^1.4.4",
     "nanocustomassert": "^1.0.0",
     "nanoerror": "^1.1.0",
-    "nanomessage": "^7.0.0",
-    "nanoresource-promise": "^2.0.0"
+    "nanomessage": "^8.0.0",
+    "nanoresource-promise": "^2.0.0",
+    "varint": "^5.0.0"
   },
   "devDependencies": {
     "@geut/chan": "^2.0.0",

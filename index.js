@@ -4,6 +4,8 @@ const eos = require('end-of-stream')
 const nanomessage = require('nanomessage')
 const assert = require('nanocustomassert')
 const { NanoresourcePromise } = require('nanoresource-promise')
+
+const Codec = require('./lib/codec')
 const {
   encodeError,
   decodeError,
@@ -13,26 +15,27 @@ const {
   NRPC_ERR_NOT_OPEN
 } = require('./lib/errors')
 
-const kNanomessage = Symbol('rpc.nanomessage')
-const kOnmessage = Symbol('rpc.onmessage')
-const kSend = Symbol('rpc.send')
-const kSubscribe = Symbol('rpc.subscribe')
-const kActions = Symbol('rpc.actions')
-const kEmittery = Symbol('rpc.emittery')
-const kOnCloseDestroyStream = Symbol('rpc.onclosedestroystream')
-const kFastCheckOpen = Symbol('rpc.fastcheckopen')
+const kNanomessage = Symbol('nrpc.nanomessage')
+const kOnmessage = Symbol('nrpc.onmessage')
+const kSend = Symbol('nrpc.send')
+const kSubscribe = Symbol('nrpc.subscribe')
+const kActions = Symbol('nrpc.actions')
+const kEmittery = Symbol('nrpc.emittery')
+const kOnCloseDestroyStream = Symbol('nrpc.onclosedestroystream')
+const kFastCheckOpen = Symbol('nrpc.fastcheckopen')
 
 class NanomessageRPC extends NanoresourcePromise {
   constructor (socket, opts = {}) {
     super()
 
-    const { onCloseDestroyStream = true, onError = () => {} } = opts
+    const { onCloseDestroyStream = true, onError = () => {}, valueEncoding, ...nanomessageOpts } = opts
 
     this.socket = socket
     this.ee = new EventEmitter()
     this[kOnCloseDestroyStream] = onCloseDestroyStream
     this[kNanomessage] = nanomessage({
-      ...opts,
+      ...nanomessageOpts,
+      valueEncoding: new Codec(valueEncoding),
       onMessage: this[kOnmessage].bind(this),
       send: this[kSend].bind(this),
       subscribe: this[kSubscribe].bind(this)
@@ -68,15 +71,16 @@ class NanomessageRPC extends NanoresourcePromise {
   }
 
   call (name, data) {
-    const request = this[kNanomessage].request({ action: name, data })
+    const request = this[kNanomessage].request({ name, data })
     const cancel = request.cancel
 
     const promise = this[kFastCheckOpen]()
       .then(() => request)
       .then((result) => {
-        if (result.err) {
-          const ErrorDecoded = decodeError(result.code, result.unformatMessage)
-          throw new ErrorDecoded(...result.args)
+        if (result.error) {
+          const err = result.data
+          const ErrorDecoded = decodeError(err.code, err.unformatMessage)
+          throw new ErrorDecoded(...err.args)
         } else {
           return result.data
         }
@@ -90,7 +94,7 @@ class NanomessageRPC extends NanoresourcePromise {
     assert(typeof name === 'string', 'name must be a valid string')
 
     return this[kFastCheckOpen]()
-      .then(() => this[kNanomessage].send({ event: name, data }))
+      .then(() => this[kNanomessage].send({ name, data, event: true }))
   }
 
   on (...args) {
@@ -152,21 +156,21 @@ class NanomessageRPC extends NanoresourcePromise {
 
   async [kOnmessage] (message) {
     if (message.event) {
-      await this[kEmittery].emit(message.event, message.data).catch((err) => {
+      await this[kEmittery].emit(message.name, message.data).catch((err) => {
         process.nextTick(() => this.ee.emit('error', err))
       })
       return
     }
 
-    const action = this[kActions].get(message.action)
+    const action = this[kActions].get(message.name)
 
     if (!action) {
-      return encodeError(new NRPC_ERR_ACTION_NAME_MISSING(message.action))
+      return encodeError(new NRPC_ERR_ACTION_NAME_MISSING(message.name))
     }
 
     try {
       const result = await action(message.data)
-      return { action: message.action, data: result }
+      return { data: result }
     } catch (err) {
       if (err.isNanoerror) {
         return encodeError(err)

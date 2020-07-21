@@ -56,6 +56,30 @@ class NanomessageRPC extends NanoresourcePromise {
     })
   }
 
+  get requests () {
+    return this[kNanomessage].requests
+  }
+
+  get inflightRequests () {
+    return this[kNanomessage].inflightRequests
+  }
+
+  get requestTimeout () {
+    return this[kNanomessage].timeout
+  }
+
+  get concurrency () {
+    return this[kNanomessage].concurrency
+  }
+
+  setRequestsTimeout (timeout) {
+    this[kNanomessage].setRequestsTimeout(timeout)
+  }
+
+  setConcurrency (concurrency) {
+    this[kNanomessage].setConcurrency(concurrency)
+  }
+
   onError (cb) {
     this._onError = cb
   }

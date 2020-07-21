@@ -79,9 +79,9 @@ Create a new nanomessage-rpc.
 
 Options include:
 
-- `timeout: 10 * 1000`: Time to wait for the response of a request.
-- `concurrency: Infinity`: Defines how many requests do you want to run in concurrent.
-- `codec: JSON`: Defines a [compatible codec](https://github.com/mafintosh/codecs) to encode/decode messages in nanomessage.
+- `timeout: Infinity`: Time to wait for the response of a request.
+- `concurrency: { incoming: 256, outgoing: 256 }`: Defines how many requests do you want to run in concurrent.
+- `valueEncoding: buffer-json`: Defines an [abstract-encoding](https://github.com/mafintosh/abstract-encoding) to encode/decode messages in nanomessage.
 
 #### `rpc.open() -> Promise`
 

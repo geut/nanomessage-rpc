@@ -102,9 +102,11 @@ class NanomessageRPC extends NanoresourcePromise {
       .then(() => request)
       .then((result) => {
         if (result.error) {
-          const err = result.data
-          const ErrorDecoded = decodeError(err.code, err.unformatMessage)
-          throw new ErrorDecoded(...err.args)
+          const { code, unformatMessage, args, stack } = result.data
+          const ErrorDecoded = decodeError(code, unformatMessage)
+          const err = new ErrorDecoded(...args)
+          err.stack = stack || err.stack
+          throw err
         } else {
           return result.data
         }
@@ -199,7 +201,9 @@ class NanomessageRPC extends NanoresourcePromise {
       if (err.isNanoerror) {
         return encodeError(err)
       }
-      return encodeError(new NRPC_ERR_ACTION_RESPONSE_ERROR(err.message))
+      const rErr = new NRPC_ERR_ACTION_RESPONSE_ERROR(err.message)
+      rErr.stack = err.stack || rErr.stack
+      return encodeError(rErr)
     }
   }
 }

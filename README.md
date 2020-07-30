@@ -1,4 +1,4 @@
-# nanomessage-rpc
+# nanomessage-rpc (aka nrpc)
 
 [![Build Status](https://travis-ci.com/geut/nanomessage-rpc.svg?branch=master)](https://travis-ci.com/geut/nanomessage-rpc)
 [![JavaScript Style Guide](https://img.shields.io/badge/code_style-standard-brightgreen.svg)](https://standardjs.com)
@@ -73,6 +73,8 @@ const BAD_REQUEST = nanoerror('BAD_REQUEST', 'the request %s is wrong')
 })()
 ```
 
+## API
+
 #### `const rpc = nanomessagerpc(socket, options)`
 
 Create a new nanomessage-rpc.
@@ -104,11 +106,21 @@ Shortcut to define multiple actions.
 
 - `actions: { actionName: handler, ... }`: List of actions.
 
-#### `rpc.call(actionName) -> Promise<Response>`
+#### `rpc.call(actionName, data) -> Promise<Response>`
 
 Call an action an wait for the response.
 
 - `actionName: string`: Action name.
+- `data: (Buffer|Object|String)`: Request data.
+
+### Events
+
+#### `rpc.emit(eventName, data) -> Promise`
+
+Call an action an wait for the response.
+
+- `actionName: string`: Event name.
+- `data: (Buffer|Object|String)`: Event data.
 
 #### `rpc.on(eventName, handler) -> unsubscribe`
 
@@ -138,6 +150,16 @@ for await (const data of rpc.events('ping')) {
   if (disconnected) break
 }
 ```
+
+### System events
+
+You can listen for internal events using `rpc.ee`.
+
+- `on('error', (err) => {})`: When the internal RPC gets an error.
+- `on('opened', () => {})`: When the RPC was opened.
+- `on('closed', () => {})`: When the RPC was closed.
+- `on('request-created', (request, message) => {})`: When a request is created.
+- `on('message', (message) => {})`: When it comes a new message.
 
 ## <a name="issues"></a> Issues
 

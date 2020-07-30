@@ -6,14 +6,7 @@ const assert = require('nanocustomassert')
 const { NanoresourcePromise } = require('nanoresource-promise')
 
 const Codec = require('./lib/codec')
-const {
-  encodeError,
-  decodeError,
-  NRPC_ERR_ACTION_NAME_MISSING,
-  NRPC_ERR_ACTION_RESPONSE_ERROR,
-  NRPC_ERR_CLOSE,
-  NRPC_ERR_NOT_OPEN
-} = require('./lib/errors')
+const errors = require('./lib/errors')
 
 const kNanomessage = Symbol('nrpc.nanomessage')
 const kOnmessage = Symbol('nrpc.onmessage')
@@ -23,6 +16,17 @@ const kActions = Symbol('nrpc.actions')
 const kEmittery = Symbol('nrpc.emittery')
 const kOnCloseDestroyStream = Symbol('nrpc.onclosedestroystream')
 const kFastCheckOpen = Symbol('nrpc.fastcheckopen')
+const kCreateRequest = Symbol('nrpc.createrequest')
+
+const {
+  encodeError,
+  decodeError,
+  NRPC_ERR_NAME_MISSING,
+  NRPC_ERR_RESPONSE_ERROR,
+  NRPC_ERR_CLOSE,
+  NRPC_ERR_NOT_OPEN,
+  NRPC_ERR_REQUEST_CANCELED
+} = errors
 
 class NanomessageRPC extends NanoresourcePromise {
   constructor (socket, opts = {}) {
@@ -95,32 +99,11 @@ class NanomessageRPC extends NanoresourcePromise {
   }
 
   call (name, data) {
-    const request = this[kNanomessage].request({ name, data })
-    const cancel = request.cancel
-
-    const promise = this[kFastCheckOpen]()
-      .then(() => request)
-      .then((result) => {
-        if (result.error) {
-          const { code, unformatMessage, args, stack } = result.data
-          const ErrorDecoded = decodeError(code, unformatMessage)
-          const err = new ErrorDecoded(...args)
-          err.stack = stack || err.stack
-          throw err
-        } else {
-          return result.data
-        }
-      })
-
-    promise.cancel = cancel
-    return promise
+    return this[kCreateRequest](name, data)
   }
 
   emit (name, data) {
-    assert(typeof name === 'string', 'name must be a valid string')
-
-    return this[kFastCheckOpen]()
-      .then(() => this[kNanomessage].send({ name, data, event: true }))
+    return this[kCreateRequest](name, data, true)
   }
 
   on (...args) {
@@ -175,33 +158,71 @@ class NanomessageRPC extends NanoresourcePromise {
     return () => this.socket.removeListener('data', reader)
   }
 
-  async [kSend] (chunk) {
+  [kCreateRequest] (name, data, event) {
+    assert(name && typeof name === 'string', 'name is required')
+
+    const packet = { name, data, event }
+
+    let errCanceled
+    let request
+    const promise = this[kFastCheckOpen]()
+      .then(() => {
+        if (errCanceled) throw errCanceled
+        request = this[kNanomessage].request(packet)
+        this.ee.emit('request-created', request, packet)
+        return request
+      })
+      .then(result => {
+        if (result.error) {
+          const { code, unformatMessage, args, stack } = result.data
+          const ErrorDecoded = decodeError(code, unformatMessage)
+          const err = new ErrorDecoded(...args)
+          err.stack = stack || err.stack
+          throw err
+        } else {
+          return result.data
+        }
+      })
+
+    promise.cancel = (err) => {
+      if (!err) {
+        errCanceled = new NRPC_ERR_REQUEST_CANCELED('request canceled')
+      } else if (typeof err === 'string') {
+        errCanceled = new NRPC_ERR_REQUEST_CANCELED(err)
+      }
+
+      if (request) return request.cancel(errCanceled)
+      errCanceled = err
+    }
+    return promise
+  }
+
+  [kSend] (chunk) {
     if (this.socket.destroyed) return
     this.socket.write(chunk)
   }
 
   async [kOnmessage] (message) {
-    if (message.event) {
-      await this[kEmittery].emit(message.name, message.data).catch((err) => {
-        process.nextTick(() => this.ee.emit('error', err))
-      })
-      return
-    }
-
-    const action = this[kActions].get(message.name)
-
-    if (!action) {
-      return encodeError(new NRPC_ERR_ACTION_NAME_MISSING(message.name))
-    }
-
+    this.ee.emit('message', message)
     try {
+      if (message.event) {
+        await this[kEmittery].emit(message.name, message.data)
+        return { data: null }
+      }
+
+      const action = this[kActions].get(message.name)
+
+      if (!action) {
+        return encodeError(new NRPC_ERR_NAME_MISSING(message.name))
+      }
+
       const result = await action(message.data)
       return { data: result }
     } catch (err) {
       if (err.isNanoerror) {
         return encodeError(err)
       }
-      const rErr = new NRPC_ERR_ACTION_RESPONSE_ERROR(err.message)
+      const rErr = new NRPC_ERR_RESPONSE_ERROR(err.message)
       rErr.stack = err.stack || rErr.stack
       return encodeError(rErr)
     }
@@ -210,4 +231,4 @@ class NanomessageRPC extends NanoresourcePromise {
 
 module.exports = (...args) => new NanomessageRPC(...args)
 module.exports.NanomessageRPC = NanomessageRPC
-module.exports.errors = { NRPC_ERR_ACTION_NAME_MISSING, NRPC_ERR_ACTION_RESPONSE_ERROR, NRPC_ERR_CLOSE, NRPC_ERR_NOT_OPEN }
+module.exports.errors = errors

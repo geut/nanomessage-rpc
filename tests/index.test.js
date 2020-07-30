@@ -2,7 +2,7 @@ const nanoerror = require('nanoerror')
 
 const create = require('./create')
 
-const { errors: { NRPC_ERR_ACTION_RESPONSE_ERROR, NRPC_ERR_ACTION_NAME_MISSING } } = require('..')
+const { errors: { NRPC_ERR_RESPONSE_ERROR, NRPC_ERR_NAME_MISSING } } = require('..')
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
 
@@ -33,7 +33,7 @@ test('actions', async () => {
   try {
     await bob.call('error')
   } catch (err) {
-    expect(err).toBeInstanceOf(NRPC_ERR_ACTION_RESPONSE_ERROR)
+    expect(err).toBeInstanceOf(NRPC_ERR_RESPONSE_ERROR)
     expect(err.message).toBe('wrong')
   }
 
@@ -47,7 +47,7 @@ test('actions', async () => {
   try {
     await bob.call('foo')
   } catch (err) {
-    expect(err).toBeInstanceOf(NRPC_ERR_ACTION_NAME_MISSING)
+    expect(err).toBeInstanceOf(NRPC_ERR_NAME_MISSING)
     expect(err.message).toBe('missing action handler for: foo')
   }
 })

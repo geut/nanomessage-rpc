@@ -16,8 +16,8 @@ module.exports = function create (aliceOpts = { onMessage () {} }, bobOpts = { o
     }
   })
 
-  const alice = nanorpc(stream1, aliceOpts)
-  const bob = nanorpc(stream2, bobOpts)
+  const alice = nanorpc({ ...aliceOpts, ...nanorpc.useSocket(stream1) })
+  const bob = nanorpc({ ...bobOpts, ...nanorpc.useSocket(stream2) })
 
   return { alice, bob }
 }

@@ -18,7 +18,14 @@ $ npm install nanomessage-rpc
 const nanomessagerpc = require('nanomessage-rpc')
 
 ;(async () => {
-  const rpc = nanomessagerpc(socket, opts)
+  const rpc = nanomessagerpc({
+    send(buf) {
+      // implement how to send the message
+    },
+    subscribe(next) {
+      // subscribe for incoming messages
+    }
+  })
 
   await rpc
     .action('sum', ({ a, b }) => a + b)
@@ -27,6 +34,19 @@ const nanomessagerpc = require('nanomessage-rpc')
 
   // from the other rpc socket side
   const result = await rpc.call('sum', { a: 2, b: 2 }) // 4
+})()
+```
+
+We provide a socket helper:
+
+```javascript
+const nanomessagerpc = require('nanomessage-rpc')
+const { useSocket } = nanomessagerpc
+
+;(async () => {
+  const rpc = nanomessagerpc({ ...useSocket(socket) })
+
+  // ...
 })()
 ```
 
@@ -75,21 +95,23 @@ const BAD_REQUEST = nanoerror('BAD_REQUEST', 'the request %s is wrong')
 
 ## API
 
-#### `const rpc = nanomessagerpc(socket, options)`
+#### `const rpc = nanomessagerpc(options)`
 
 Create a new nanomessage-rpc.
 
 Options include:
 
+- `send: (buf: Buffer) => (Promise|undefined)`: Define a hook to specify how to send the data. `Required`.
+- `subscribe: (next: function) => UnsubscribeFunction`: Define a handler to listen for incoming messages. `Required`.
 - `timeout: Infinity`: Time to wait for the response of a request.
 - `concurrency: { incoming: 256, outgoing: 256 }`: Defines how many requests do you want to run in concurrent.
 - `valueEncoding: buffer-json`: Defines an [abstract-encoding](https://github.com/mafintosh/abstract-encoding) to encode/decode messages in nanomessage.
 
-#### `rpc.open() -> Promise`
+#### `rpc.open() => Promise`
 
 Opens nanomessage and start listening for incoming data.
 
-#### `rpc.close() -> Promise`
+#### `rpc.close() => Promise`
 
 Closes nanomessage and unsubscribe from incoming data.
 
@@ -98,7 +120,7 @@ Closes nanomessage and unsubscribe from incoming data.
 Defines a rpc action and handler for incoming requests.
 
 - `actionName: string`: Name of the action.
-- `handler: function`: Handler, coulb be `async`.
+- `handler: function`: Handler, could be `async`.
 
 #### `rpc.actions(actions)`
 
@@ -106,7 +128,7 @@ Shortcut to define multiple actions.
 
 - `actions: { actionName: handler, ... }`: List of actions.
 
-#### `rpc.call(actionName, data) -> Promise<Response>`
+#### `rpc.call(actionName, data) => Promise<Response>`
 
 Call an action an wait for the response.
 
@@ -115,20 +137,20 @@ Call an action an wait for the response.
 
 ### Events
 
-#### `rpc.emit(eventName, data) -> Promise`
+#### `rpc.emit(eventName, data) => Promise`
 
 Call an action an wait for the response.
 
 - `actionName: string`: Event name.
 - `data: (Buffer|Object|String)`: Event data.
 
-#### `rpc.on(eventName, handler) -> unsubscribe`
+#### `rpc.on(eventName, handler) => unsubscribe`
 
 Subscribe to a RPC event.
 
 Returns an unsubscribe method.
 
-#### `rpc.once(eventName) -> Promise`
+#### `rpc.once(eventName) => Promise`
 
 Subscribe to a RPC event only once. It will be unsubscribed after the first event.
 

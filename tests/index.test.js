@@ -68,7 +68,7 @@ test('events', async () => {
       received = true
       return value
     })
-  await alice.emit('notWait', 'hi', false)
+  await alice.emit('notWait', 'hi', { wait: false })
   expect(received).toBe(false)
   await expect(finish).resolves.toEqual('hi')
 })
@@ -87,4 +87,47 @@ test('cancel', async () => {
   const request = bob.call('delay')
   process.nextTick(() => request.cancel())
   await expect(request).rejects.toThrow('request canceled')
+})
+
+test('abort signal', async () => {
+  const { alice, bob } = create()
+
+  await alice.actions({
+    delay: async () => {
+      await delay(500)
+    }
+  }).open()
+
+  await bob.open()
+
+  {
+    const controller = new AbortController()
+    const signal = controller.signal
+    controller.abort()
+    const request = bob.call('delay', 'test', { signal })
+    await expect(request).rejects.toThrow('request canceled')
+  }
+
+  {
+    const controller = new AbortController()
+    const signal = controller.signal
+    const request = bob.call('delay', 'test', { signal })
+    setTimeout(() => controller.abort(), 200)
+    await expect(request).rejects.toThrow('request canceled')
+  }
+})
+
+test('custom timeout', async () => {
+  const { alice, bob } = create()
+
+  await alice.actions({
+    delay: async () => {
+      await delay(1000)
+    }
+  }).open()
+
+  await bob.open()
+
+  const request = bob.call('delay', 'test', { timeout: 100 })
+  await expect(request).rejects.toThrow(/timeout/)
 })

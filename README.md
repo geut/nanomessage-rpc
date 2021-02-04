@@ -128,22 +128,26 @@ Shortcut to define multiple actions.
 
 - `actions: { actionName: handler, ... }`: List of actions.
 
-#### `rpc.call(actionName, data) => Promise<Response>`
+#### `rpc.call(actionName, data, [opts]) => Promise<Response>`
 
 Call an action an wait for the response.
 
 - `actionName: string`: Action name.
 - `data: (Buffer|Object|String)`: Request data.
+- `opts.timeout: number`: Define a custom timeout for the current request.
+- `opts.signal: AbortSignal`: Set an abort signal object to cancel the request.
 
 ### Events
 
-#### `rpc.emit(eventName, data, [wait]) => Promise`
+#### `rpc.emit(eventName, data, [opts]) => Promise`
 
 Emit an event in the remote side.
 
 - `actionName: string`: Event name.
 - `data: (Buffer|Object|String)`: Event data.
-- `wait: boolean = true`: Wait for the response event handler.
+- `opts.wait: boolean = true`: Wait for the response event handler.
+- `opts.timeout: number`: Define a custom timeout for the current request.
+- `opts.signal: AbortSignal`: Set an abort signal object to cancel the request.
 
 #### `rpc.on(eventName, handler) => unsubscribe`
 

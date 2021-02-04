@@ -20,7 +20,7 @@
     "end-of-stream": "^1.4.4",
     "nanocustomassert": "^1.0.0",
     "nanoerror": "^1.1.0",
-    "nanomessage": "^8.2.0",
+    "nanomessage": "^8.3.0",
     "nanoresource-promise": "^2.0.0",
     "varint": "^5.0.0"
   },

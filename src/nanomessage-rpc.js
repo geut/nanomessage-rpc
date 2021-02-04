@@ -92,12 +92,12 @@ class NanomessageRPC extends NanoresourcePromise {
     return this
   }
 
-  call (name, data) {
-    return this[kCreateRequest]({ name, data })
+  call (name, data, opts = {}) {
+    return this[kCreateRequest]({ name, data }, opts)
   }
 
-  emit (name, data, wait = true) {
-    return this[kCreateRequest]({ name, data, event: true }, wait)
+  emit (name, data, opts = {}) {
+    return this[kCreateRequest]({ name, data, event: true }, opts)
   }
 
   on (...args) {
@@ -144,10 +144,10 @@ class NanomessageRPC extends NanoresourcePromise {
     }
   }
 
-  [kCreateRequest] (packet, wait = true) {
+  [kCreateRequest] (packet, { timeout, signal, wait = true }) {
     assert(packet.name && typeof packet.name === 'string', 'name is required')
 
-    if (!wait) {
+    if (packet.event && !wait) {
       return this[kFastCheckOpen]().then(() => this[kNanomessage].send(packet))
     }
 
@@ -156,7 +156,7 @@ class NanomessageRPC extends NanoresourcePromise {
     const promise = this[kFastCheckOpen]()
       .then(() => {
         if (errCanceled) throw errCanceled
-        request = this[kNanomessage].request(packet)
+        request = this[kNanomessage].request(packet, { timeout, signal })
         this.ee.emit('request-created', request, packet)
         return request
       })

@@ -137,12 +137,13 @@ Call an action an wait for the response.
 
 ### Events
 
-#### `rpc.emit(eventName, data) => Promise`
+#### `rpc.emit(eventName, data, [wait]) => Promise`
 
-Call an action an wait for the response.
+Emit an event in the remote side.
 
 - `actionName: string`: Event name.
 - `data: (Buffer|Object|String)`: Event data.
+- `wait: boolean = true`: Wait for the response event handler.
 
 #### `rpc.on(eventName, handler) => unsubscribe`
 

@@ -58,12 +58,19 @@ test('events', async () => {
   await alice.open()
   await bob.open()
 
-  const finish = Promise.all([alice.once('ping'), bob.once('pong')])
-
-  await alice.emit('pong', 'hi')
-  await bob.emit('ping', 'hello')
-
+  let finish = Promise.all([alice.once('ping'), bob.once('pong')])
+  await Promise.all([alice.emit('pong', 'hi'), bob.emit('ping', 'hello')])
   await expect(finish).resolves.toEqual(['hello', 'hi'])
+
+  let received = false
+  finish = bob.once('notWait')
+    .then(value => {
+      received = true
+      return value
+    })
+  await alice.emit('notWait', 'hi', false)
+  expect(received).toBe(false)
+  await expect(finish).resolves.toEqual('hi')
 })
 
 test('cancel', async () => {

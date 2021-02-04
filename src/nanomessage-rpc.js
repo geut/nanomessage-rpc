@@ -93,11 +93,11 @@ class NanomessageRPC extends NanoresourcePromise {
   }
 
   call (name, data) {
-    return this[kCreateRequest](name, data)
+    return this[kCreateRequest]({ name, data })
   }
 
-  emit (name, data) {
-    return this[kCreateRequest](name, data, true)
+  emit (name, data, wait = true) {
+    return this[kCreateRequest]({ name, data, event: true }, wait)
   }
 
   on (...args) {
@@ -144,10 +144,12 @@ class NanomessageRPC extends NanoresourcePromise {
     }
   }
 
-  [kCreateRequest] (name, data, event) {
-    assert(name && typeof name === 'string', 'name is required')
+  [kCreateRequest] (packet, wait = true) {
+    assert(packet.name && typeof packet.name === 'string', 'name is required')
 
-    const packet = { name, data, event }
+    if (!wait) {
+      return this[kFastCheckOpen]().then(() => this[kNanomessage].send(packet))
+    }
 
     let errCanceled
     let request
@@ -180,6 +182,7 @@ class NanomessageRPC extends NanoresourcePromise {
       if (request) return request.cancel(errCanceled)
       errCanceled = err
     }
+
     return promise
   }
 

@@ -9,7 +9,7 @@
   ],
   "scripts": {
     "benchmark": "node benchmark.js",
-    "test": "jest --passWithNoTests",
+    "test": "jest --passWithNoTests --verbose",
     "posttest": "npm run lint",
     "lint": "xd-ns \"**/*.js\"",
     "version": "chan release --allow-yanked ${npm_package_version} && git add .",

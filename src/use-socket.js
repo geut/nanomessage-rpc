@@ -1,6 +1,6 @@
-const eos = require('end-of-stream')
+import eos from 'end-of-stream'
 
-function useSocket (socket, onCloseDestroyStream = true) {
+export function useSocket (socket, onCloseDestroyStream = true) {
   return {
     send (buf) {
       if (socket.destroyed) return
@@ -29,5 +29,3 @@ function useSocket (socket, onCloseDestroyStream = true) {
     }
   }
 }
-
-module.exports = useSocket

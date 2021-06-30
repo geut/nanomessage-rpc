@@ -1,8 +1,8 @@
-const { Duplex } = require('streamx')
+import { Duplex } from 'streamx'
 
-const nanorpc = require('..')
+import { NanomessageRPC, useSocket } from '../src/index.js'
 
-module.exports = function create (aliceOpts = { onMessage () {} }, bobOpts = { onMessage () {} }) {
+export default function create (aliceOpts = { onMessage () {} }, bobOpts = { onMessage () {} }) {
   const stream1 = new Duplex({
     write (data, cb) {
       stream2.push(data)
@@ -16,8 +16,8 @@ module.exports = function create (aliceOpts = { onMessage () {} }, bobOpts = { o
     }
   })
 
-  const alice = nanorpc({ ...aliceOpts, ...nanorpc.useSocket(stream1) })
-  const bob = nanorpc({ ...bobOpts, ...nanorpc.useSocket(stream2) })
+  const alice = new NanomessageRPC({ ...aliceOpts, ...useSocket(stream1) })
+  const bob = new NanomessageRPC({ ...bobOpts, ...useSocket(stream2) })
 
   return { alice, bob }
 }

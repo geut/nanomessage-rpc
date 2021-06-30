@@ -2,14 +2,18 @@
   "name": "nanomessage-rpc",
   "version": "3.2.0",
   "description": "Tiny rpc on top of nanomessage",
-  "main": "index.js",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.js",
+    "./use-socket": "./src/use-socket.js",
+    "./errors": "./src/errors.js"
+  },
   "files": [
-    "src",
-    "index.js"
+    "src"
   ],
   "scripts": {
-    "benchmark": "node benchmark.js",
-    "test": "jest --passWithNoTests --verbose",
+    "benchmark": "node tests/benchmark.js",
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest --passWithNoTests",
     "posttest": "npm run lint",
     "lint": "xd-ns \"**/*.js\"",
     "version": "chan release --allow-yanked ${npm_package_version} && git add .",
@@ -20,19 +24,24 @@
     "end-of-stream": "^1.4.4",
     "nanocustomassert": "^1.0.0",
     "nanoerror": "^1.1.0",
-    "nanomessage": "^8.3.0",
+    "nanomessage": "^10.0.1",
     "nanoresource-promise": "^2.0.0",
     "varint": "^5.0.0"
   },
   "devDependencies": {
     "@geut/chan": "^2.0.0",
     "@geut/xd": "^1.5.0",
-    "jest": "^24.8.0",
+    "abortcontroller-polyfill": "^1.7.3",
+    "enhanced-resolve": "^5.8.2",
+    "jest": "^27.0.4",
     "nanobench": "^2.1.1",
-    "standard": "^14.3.1",
+    "standard": "^16.0.1",
     "streamx": "^2.6.4"
   },
   "jest": {
+    "resolver": "./tests/jest-resolver.cjs",
+    "testEnvironment": "jest-environment-node",
+    "transform": {},
     "testMatch": [
       "**/tests/**/*.test.js"
     ]

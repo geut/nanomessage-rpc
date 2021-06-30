@@ -15,10 +15,10 @@ $ npm install nanomessage-rpc
 ## <a name="usage"></a> Usage
 
 ```javascript
-const nanomessagerpc = require('nanomessage-rpc')
+import { NanomessageRPC } from 'nanomessage-rpc'
 
 ;(async () => {
-  const rpc = nanomessagerpc({
+  const rpc = new NanomessageRPC({
     send(buf) {
       // implement how to send the message
     },
@@ -40,11 +40,10 @@ const nanomessagerpc = require('nanomessage-rpc')
 We provide a socket helper:
 
 ```javascript
-const nanomessagerpc = require('nanomessage-rpc')
-const { useSocket } = nanomessagerpc
+import { NanomessageRPC, useSocket } from 'nanomessage-rpc'
 
 ;(async () => {
-  const rpc = nanomessagerpc({ ...useSocket(socket) })
+  const rpc = new NanomessageRPC({ ...useSocket(socket) })
 
   // ...
 })()
@@ -54,7 +53,7 @@ Also it has an [emittery](https://github.com/sindresorhus/emittery) instance to 
 
 ```javascript
 ;(async () => {
-  const rpc = nanomessagerpc(socket, opts)
+  const rpc = new NanomessageRPC(socket, opts)
 
   await rpc.open()
 
@@ -70,13 +69,13 @@ Also it has an [emittery](https://github.com/sindresorhus/emittery) instance to 
 And it has support for [nanoerror](https://github.com/geut/nanoerror).
 
 ```javascript
-const nanomessagerpc = require('nanomessage-rpc')
-const nanoerror = require('nanoerror')
+import { NanomessageRPC } from 'nanomessage-rpc'
+import nanoerror from 'nanoerror'
 
 const BAD_REQUEST = nanoerror('BAD_REQUEST', 'the request %s is wrong')
 
 ;(async () => {
-  const rpc = nanomessagerpc(socket, opts)
+  const rpc = new NanomessageRPC(socket, opts)
 
   await rpc
     .action('badrequest', () => {
@@ -95,7 +94,7 @@ const BAD_REQUEST = nanoerror('BAD_REQUEST', 'the request %s is wrong')
 
 ## API
 
-#### `const rpc = nanomessagerpc(options)`
+#### `const rpc = new NanomessageRPC(options)`
 
 Create a new nanomessage-rpc.
 

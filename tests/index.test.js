@@ -1,8 +1,9 @@
-const nanoerror = require('nanoerror')
+import nanoerror from 'nanoerror'
+import { AbortController } from 'abortcontroller-polyfill/dist/abortcontroller'
 
-const create = require('./create')
+import create from './create.js'
 
-const { errors: { NRPC_ERR_RESPONSE_ERROR, NRPC_ERR_NAME_MISSING } } = require('..')
+import { NRPC_ERR_RESPONSE_ERROR, NRPC_ERR_NAME_MISSING } from '../src/errors.js'
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
 

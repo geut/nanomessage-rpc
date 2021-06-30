@@ -1,11 +1,11 @@
-const { EventEmitter } = require('events')
-const Emittery = require('emittery')
-const nanomessage = require('nanomessage')
-const assert = require('nanocustomassert')
-const { NanoresourcePromise } = require('nanoresource-promise')
+import { EventEmitter } from 'events'
+import Emittery from 'emittery'
+import { Nanomessage } from 'nanomessage'
+import assert from 'nanocustomassert'
+import { NanoresourcePromise } from 'nanoresource-promise'
 
-const Codec = require('./codec')
-const {
+import Codec from './codec.js'
+import {
   encodeError,
   decodeError,
   NRPC_ERR_NAME_MISSING,
@@ -13,7 +13,7 @@ const {
   NRPC_ERR_CLOSE,
   NRPC_ERR_NOT_OPEN,
   NRPC_ERR_REQUEST_CANCELED
-} = require('./errors')
+} from './errors.js'
 
 const kNanomessage = Symbol('nrpc.nanomessage')
 const kOnmessage = Symbol('nrpc.onmessage')
@@ -25,7 +25,7 @@ const kCreateRequest = Symbol('nrpc.createrequest')
 
 const noop = () => {}
 
-class NanomessageRPC extends NanoresourcePromise {
+export class NanomessageRPC extends NanoresourcePromise {
   constructor (opts = {}) {
     super()
 
@@ -35,7 +35,7 @@ class NanomessageRPC extends NanoresourcePromise {
     assert(subscribe, 'subscribe is required')
 
     this.ee = new EventEmitter()
-    this[kNanomessage] = nanomessage({
+    this[kNanomessage] = new Nanomessage({
       ...nanomessageOpts,
       send: send.bind(this),
       open: open.bind(this),
@@ -52,6 +52,14 @@ class NanomessageRPC extends NanoresourcePromise {
     this.ee.on('error', err => {
       this._onError(err)
     })
+  }
+
+  get opened () {
+    return this[kNanomessage].opened
+  }
+
+  get closed () {
+    return this[kNanomessage].closed
   }
 
   get requests () {
@@ -212,5 +220,3 @@ class NanomessageRPC extends NanoresourcePromise {
     }
   }
 }
-
-module.exports = NanomessageRPC

@@ -1,32 +1,29 @@
-const nanoerror = require('nanoerror')
-
-exports.encodeError = encodeError
-exports.decodeError = decodeError
+import nanoerror from 'nanoerror'
 
 const errors = new Map()
 
 function createError (code, message) {
-  exports[code] = nanoerror(code, message)
+  const err = nanoerror(code, message)
+  errors.set(code, err)
+  return err
 }
 
-function encodeError (err) {
+export function encodeError (err) {
   return { error: true, data: { code: err.code, unformatMessage: err.unformatMessage, args: err.args, stack: err.stack } }
 }
 
-function decodeError (code, message) {
-  if (exports[code]) return exports[code]
-
+export function decodeError (code, message) {
   if (errors.has(code)) return errors.get(code)
 
-  const error = nanoerror(code, message)
-  errors.set(code, error)
-  return error
+  const err = nanoerror(code, message)
+  errors.set(code, err)
+  return err
 }
 
-createError('NRPC_ERR_NAME_MISSING', 'missing action handler for: %s')
-createError('NRPC_ERR_RESPONSE_ERROR', '%s')
-createError('NRPC_ERR_REQUEST_CANCELED', '%s')
-createError('NRPC_ERR_CLOSE', 'nanomessage-rpc was closed')
-createError('NRPC_ERR_NOT_OPEN', 'nanomessage-rpc is not open')
-createError('NRPC_ERR_ENCODE', 'error encoding the request: %s')
-createError('NRPC_ERR_DECODE', 'error decoding the request: %s')
+export const NRPC_ERR_NAME_MISSING = createError('NRPC_ERR_NAME_MISSING', 'missing action handler for: %s')
+export const NRPC_ERR_RESPONSE_ERROR = createError('NRPC_ERR_RESPONSE_ERROR', '%s')
+export const NRPC_ERR_REQUEST_CANCELED = createError('NRPC_ERR_REQUEST_CANCELED', '%s')
+export const NRPC_ERR_CLOSE = createError('NRPC_ERR_CLOSE', 'nanomessage-rpc was closed')
+export const NRPC_ERR_NOT_OPEN = createError('NRPC_ERR_NOT_OPEN', 'nanomessage-rpc is not open')
+export const NRPC_ERR_ENCODE = createError('NRPC_ERR_ENCODE', 'error encoding the request: %s')
+export const NRPC_ERR_DECODE = createError('NRPC_ERR_DECODE', 'error decoding the request: %s')

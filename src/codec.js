@@ -1,6 +1,7 @@
-const varint = require('varint')
-const { BJSON } = require('nanomessage')
-const { NRPC_ERR_ENCODE, NRPC_ERR_DECODE } = require('./errors')
+import varint from 'varint'
+import bufferJSON from 'nanomessage/buffer-json'
+
+import { NRPC_ERR_ENCODE, NRPC_ERR_DECODE } from './errors.js'
 
 function writeNumber (value, dest) {
   varint.encode(value, dest.buf, dest.offset)
@@ -43,8 +44,8 @@ const ATTR_RESPONSE = 1
 const ATTR_EVENT = 1 << 1
 const ATTR_ERROR = 1 << 2
 
-class Codec {
-  constructor (valueEncoding = BJSON) {
+export default class Codec {
+  constructor (valueEncoding = bufferJSON) {
     this._valueEncoding = valueEncoding
     this._lastHeader = null
     this._lastDataLength = null
@@ -138,7 +139,7 @@ class Codec {
   _encodingLengthResponse (obj) {
     const header = this._headerResponse(obj)
     let codec = this._valueEncoding
-    if (obj.error) codec = BJSON
+    if (obj.error) codec = bufferJSON
 
     const dataLength = codec.encodingLength(obj.data)
     return (
@@ -150,7 +151,7 @@ class Codec {
 
   _encodeResponse (obj, buf, offset) {
     let codec = this._valueEncoding
-    if (obj.error) codec = BJSON
+    if (obj.error) codec = bufferJSON
 
     const dataLength = codec.encodingLength(obj.data)
 
@@ -166,11 +167,9 @@ class Codec {
     obj.error = !!(header & ATTR_ERROR)
 
     let codec = this._valueEncoding
-    if (obj.error) codec = BJSON
+    if (obj.error) codec = bufferJSON
 
     obj.data = readCodec(codec, result)
     return obj
   }
 }
-
-module.exports = Codec

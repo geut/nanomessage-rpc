@@ -23,7 +23,5 @@ export function decodeError (code, message) {
 export const NRPC_ERR_NAME_MISSING = createError('NRPC_ERR_NAME_MISSING', 'missing action handler for: %s')
 export const NRPC_ERR_RESPONSE_ERROR = createError('NRPC_ERR_RESPONSE_ERROR', '%s')
 export const NRPC_ERR_REQUEST_CANCELED = createError('NRPC_ERR_REQUEST_CANCELED', '%s')
-export const NRPC_ERR_CLOSE = createError('NRPC_ERR_CLOSE', 'nanomessage-rpc was closed')
-export const NRPC_ERR_NOT_OPEN = createError('NRPC_ERR_NOT_OPEN', 'nanomessage-rpc is not open')
 export const NRPC_ERR_ENCODE = createError('NRPC_ERR_ENCODE', 'error encoding the request: %s')
 export const NRPC_ERR_DECODE = createError('NRPC_ERR_DECODE', 'error decoding the request: %s')

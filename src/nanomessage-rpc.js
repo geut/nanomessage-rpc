@@ -10,8 +10,6 @@ import {
   decodeError,
   NRPC_ERR_NAME_MISSING,
   NRPC_ERR_RESPONSE_ERROR,
-  NRPC_ERR_CLOSE,
-  NRPC_ERR_NOT_OPEN,
   NRPC_ERR_REQUEST_CANCELED
 } from './errors.js'
 
@@ -20,7 +18,6 @@ const kOnmessage = Symbol('nrpc.onmessage')
 const kSubscribe = Symbol('nrpc.subscribe')
 const kActions = Symbol('nrpc.actions')
 const kEmittery = Symbol('nrpc.emittery')
-const kFastCheckOpen = Symbol('nrpc.fastcheckopen')
 const kCreateRequest = Symbol('nrpc.createrequest')
 
 const noop = () => {}
@@ -32,16 +29,18 @@ export class NanomessageRPC extends NanoresourcePromise {
     const { onError = () => {}, valueEncoding, send, subscribe, open = noop, close = noop, ...nanomessageOpts } = opts
 
     assert(send, 'send is required')
-    assert(subscribe, 'subscribe is required')
 
     this.ee = new EventEmitter()
+
+    this[kOnmessage] = this[kOnmessage].bind(this)
+
     this[kNanomessage] = new Nanomessage({
       ...nanomessageOpts,
       send: send.bind(this),
       open: open.bind(this),
       close: close.bind(this),
-      onMessage: this[kOnmessage].bind(this),
-      subscribe: this[kSubscribe](subscribe),
+      onMessage: this[kOnmessage],
+      subscribe: subscribe && this[kSubscribe](subscribe),
       valueEncoding: new Codec(valueEncoding)
     })
     this[kEmittery] = new Emittery()
@@ -124,8 +123,9 @@ export class NanomessageRPC extends NanoresourcePromise {
     return this[kEmittery].events(name)
   }
 
-  processIncomingMessage (buf, onMessage) {
-    return this[kNanomessage].processIncomingMessage(buf, onMessage)
+  async processIncomingMessage (buf) {
+    await this.open()
+    return this[kNanomessage].processIncomingMessage(buf, this[kOnmessage])
   }
 
   async _open () {
@@ -138,20 +138,12 @@ export class NanomessageRPC extends NanoresourcePromise {
     this.ee.emit('closed')
   }
 
-  async [kFastCheckOpen] () {
-    if (this.closed || this.closing) throw new NRPC_ERR_CLOSE()
-    if (this.opening) return this.open()
-    if (!this.opened) throw new NRPC_ERR_NOT_OPEN()
-  }
-
   [kSubscribe] (subscribe) {
     return (next) => {
       subscribe((data) => {
-        try {
-          next(data)
-        } catch (err) {
+        next(data).catch(err => {
           process.nextTick(() => this.ee.emit('error', err))
-        }
+        })
       })
     }
   }
@@ -160,12 +152,12 @@ export class NanomessageRPC extends NanoresourcePromise {
     assert(packet.name && typeof packet.name === 'string', 'name is required')
 
     if (packet.event && !wait) {
-      return this[kFastCheckOpen]().then(() => this[kNanomessage].send(packet))
+      return this.open().then(() => this[kNanomessage].send(packet))
     }
 
     let errCanceled
     let request
-    const promise = this[kFastCheckOpen]()
+    const promise = this.open()
       .then(() => {
         if (errCanceled) throw errCanceled
         request = this[kNanomessage].request(packet, { timeout, signal })
@@ -186,9 +178,9 @@ export class NanomessageRPC extends NanoresourcePromise {
 
     promise.cancel = (err) => {
       if (!err) {
-        errCanceled = new NRPC_ERR_REQUEST_CANCELED('request canceled')
+        err = new NRPC_ERR_REQUEST_CANCELED('request canceled')
       } else if (typeof err === 'string') {
-        errCanceled = new NRPC_ERR_REQUEST_CANCELED(err)
+        err = new NRPC_ERR_REQUEST_CANCELED(err)
       }
 
       if (request) return request.cancel(errCanceled)

@@ -101,7 +101,7 @@ Create a new nanomessage-rpc.
 Options include:
 
 - `send: (buf: Buffer) => (Promise|undefined)`: Define a hook to specify how to send the data. `Required`.
-- `subscribe: (next: function) => UnsubscribeFunction`: Define a handler to listen for incoming messages. `Required`.
+- `subscribe: (next: function) => UnsubscribeFunction`: Define a handler to listen for incoming messages.
 - `timeout: Infinity`: Time to wait for the response of a request.
 - `concurrency: { incoming: 256, outgoing: 256 }`: Defines how many requests do you want to run in concurrent.
 - `valueEncoding: buffer-json`: Defines an [abstract-encoding](https://github.com/mafintosh/abstract-encoding) to encode/decode messages in nanomessage.

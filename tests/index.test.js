@@ -3,6 +3,7 @@ import { AbortController } from 'abortcontroller-polyfill/dist/abortcontroller'
 
 import create from './create.js'
 
+import { NanomessageRPC } from '../src/index.js'
 import { NRPC_ERR_RESPONSE_ERROR, NRPC_ERR_NAME_MISSING } from '../src/errors.js'
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
@@ -131,4 +132,41 @@ test('custom timeout', async () => {
 
   const request = bob.call('delay', 'test', { timeout: 100 })
   await expect(request).rejects.toThrow(/timeout/)
+})
+
+test('custom timeout', async () => {
+  const { alice, bob } = create()
+
+  await alice.actions({
+    delay: async () => {
+      await delay(1000)
+    }
+  }).open()
+
+  await bob.open()
+
+  const request = bob.call('delay', 'test', { timeout: 100 })
+  await expect(request).rejects.toThrow(/timeout/)
+})
+
+test('processIncomingMessage', async () => {
+  let alice = null
+  let bob = null
+
+  alice = new NanomessageRPC({
+    send (buf) {
+      bob.processIncomingMessage(buf)
+    }
+  }).action('sum', ({ a, b }) => a + b)
+
+  bob = new NanomessageRPC({
+    send (buf) {
+      alice.processIncomingMessage(buf)
+    }
+  }).action('sum', ({ a, b }) => a + b)
+
+  await expect(Promise.all([
+    alice.call('sum', { a: 1, b: 1 }),
+    bob.call('sum', { a: 0, b: 1 })
+  ])).resolves.toEqual([2, 1])
 })

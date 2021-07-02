@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## 4.2.1 - 2021-07-02 [YANKED]
+
 ## 4.2.0 - 2021-07-02 [YANKED]
 
 ## 4.1.1 - 2021-07-01 [YANKED]
@@ -43,5 +45,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## 1.0.1 - 2020-03-12 [YANKED]
 
 ## 1.0.0 - 2020-03-11 [YANKED]
-[Unreleased]: https://github.com/geut/nanomessage-rpc/compare/v4.2.0...HEAD
+[Unreleased]: https://github.com/geut/nanomessage-rpc/compare/v4.2.1...HEAD
 [4.0.0]: https://github.com/geut/nanomessage-rpc/compare/v3.2.0...v4.0.0

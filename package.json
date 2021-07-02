@@ -1,6 +1,6 @@
 {
   "name": "nanomessage-rpc",
-  "version": "4.2.1",
+  "version": "4.3.0",
   "description": "Tiny rpc on top of nanomessage",
   "type": "module",
   "exports": {

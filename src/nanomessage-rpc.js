@@ -77,6 +77,10 @@ export class NanomessageRPC extends NanoresourcePromise {
     return this[kNanomessage].concurrency
   }
 
+  get emittery () {
+    return this[kEmittery]
+  }
+
   setRequestsTimeout (timeout) {
     this[kNanomessage].setRequestsTimeout(timeout)
   }

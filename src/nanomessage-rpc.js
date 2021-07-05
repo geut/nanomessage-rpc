@@ -135,7 +135,9 @@ export class NanomessageRPC extends NanoresourcePromise {
     })
   }
 
-  _onMessage (message, info) {}
+  async _onMessage (message, info) {
+    return message
+  }
 
   async _open () {
     await this[kNanomessage].open()
@@ -202,7 +204,7 @@ export class NanomessageRPC extends NanoresourcePromise {
   async [kOnmessage] (message, info) {
     this.ee.emit('message', message)
     try {
-      message = this._onMessage(message, info) || message
+      message = await this._onMessage(message, info)
 
       if (message.event) {
         await this[kEmittery].emit(message.name, message.data)

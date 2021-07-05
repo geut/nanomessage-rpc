@@ -81,6 +81,14 @@ export class NanomessageRPC extends NanoresourcePromise {
     return this[kEmittery]
   }
 
+  get registeredActions () {
+    const obj = {}
+    this[kActions].forEach((handler, key) => {
+      obj[key] = handler
+    })
+    return obj
+  }
+
   setRequestsTimeout (timeout) {
     this[kNanomessage].setRequestsTimeout(timeout)
   }

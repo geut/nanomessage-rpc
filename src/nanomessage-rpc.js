@@ -147,6 +147,10 @@ export class NanomessageRPC extends NanoresourcePromise {
     return message
   }
 
+  setOnMessage (handler) {
+    this._onMessage = handler
+  }
+
   async _open () {
     await this[kNanomessage].open()
     this.ee.emit('opened')

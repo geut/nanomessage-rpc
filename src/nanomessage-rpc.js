@@ -143,12 +143,12 @@ export class NanomessageRPC extends NanoresourcePromise {
     })
   }
 
-  async _onMessage (message, info) {
-    return message
+  setMessageHandler (handler) {
+    this._onMessage = handler
   }
 
-  setOnMessage (handler) {
-    this._onMessage = handler
+  async _onMessage (message, info) {
+    return message
   }
 
   async _open () {

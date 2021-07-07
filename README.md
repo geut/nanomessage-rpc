@@ -102,7 +102,7 @@ Options include:
 
 - `send: (buf: Buffer) => (Promise|undefined)`: Define a hook to specify how to send the data. `Required`.
 - `subscribe: (next: function) => UnsubscribeFunction`: Define a handler to listen for incoming messages.
-- `timeout: Infinity`: Time to wait for the response of a request.
+- `timeout: 10000`: Time (ms) to wait for the response of a request.
 - `concurrency: { incoming: 256, outgoing: 256 }`: Defines how many requests do you want to run in concurrent.
 - `valueEncoding: buffer-json`: Defines an [abstract-encoding](https://github.com/mafintosh/abstract-encoding) to encode/decode messages in nanomessage.
 
@@ -144,8 +144,7 @@ Emit an event in the remote side.
 
 - `actionName: string`: Event name.
 - `data: (Buffer|Object|String)`: Event data.
-- `opts.wait: boolean = true`: Wait for the response event handler.
-- `opts.timeout: number`: Define a custom timeout for the current request.
+- `opts.timeout: number`: Define a custom timeout for the current request. Use timeout = 0 to not wait for a response.
 - `opts.signal: AbortSignal`: Set an abort signal object to cancel the request.
 
 #### `rpc.on(eventName, handler) => unsubscribe`

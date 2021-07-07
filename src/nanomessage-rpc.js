@@ -10,7 +10,8 @@ import {
   decodeError,
   NRPC_ERR_NAME_MISSING,
   NRPC_ERR_RESPONSE_ERROR,
-  NRPC_ERR_REQUEST_CANCELED
+  NRPC_ERR_REQUEST_CANCELED,
+  NRPC_ERR_TIMEOUT_ZERO
 } from './errors.js'
 
 const kNanomessage = Symbol('nrpc.nanomessage')
@@ -26,7 +27,7 @@ export class NanomessageRPC extends NanoresourcePromise {
   constructor (opts = {}) {
     super()
 
-    const { onError = () => {}, valueEncoding, send, subscribe, open = noop, close = noop, ...nanomessageOpts } = opts
+    const { onError = () => {}, valueEncoding, send, subscribe, open = noop, close = noop, timeout, ...nanomessageOpts } = opts
 
     assert(send, 'send is required')
 
@@ -36,6 +37,7 @@ export class NanomessageRPC extends NanoresourcePromise {
 
     this[kNanomessage] = new Nanomessage({
       ...nanomessageOpts,
+      timeout: timeout || 10000,
       send: send.bind(this),
       open: open.bind(this),
       close: close.bind(this),
@@ -171,11 +173,13 @@ export class NanomessageRPC extends NanoresourcePromise {
     }
   }
 
-  [kCreateRequest] (packet, { timeout, signal, wait = true, args }) {
+  [kCreateRequest] (packet, { timeout = this[kNanomessage].requestTimeout, signal, args }) {
     assert(packet.name && typeof packet.name === 'string', 'name is required')
 
-    if (packet.event && !wait) {
+    if (packet.event && !timeout) {
       return this.open().then(() => this[kNanomessage].send(packet))
+    } else if (!timeout) {
+      throw new NRPC_ERR_TIMEOUT_ZERO(timeout)
     }
 
     let errCanceled

@@ -25,3 +25,4 @@ export const NRPC_ERR_RESPONSE_ERROR = createError('NRPC_ERR_RESPONSE_ERROR', '%
 export const NRPC_ERR_REQUEST_CANCELED = createError('NRPC_ERR_REQUEST_CANCELED', '%s')
 export const NRPC_ERR_ENCODE = createError('NRPC_ERR_ENCODE', 'error encoding the request: %s')
 export const NRPC_ERR_DECODE = createError('NRPC_ERR_DECODE', 'error decoding the request: %s')
+export const NRPC_ERR_TIMEOUT_ZERO = createError('NRPC_ERR_TIMEOUT_ZERO', 'timeout cannot be %s in a request call')

@@ -70,7 +70,7 @@ test('events', async () => {
       received = true
       return value
     })
-  await alice.emit('notWait', 'hi', { wait: false })
+  await alice.emit('notWait', 'hi', { timeout: false })
   expect(received).toBe(false)
   await expect(finish).resolves.toEqual('hi')
 })

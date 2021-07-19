@@ -177,7 +177,7 @@ export class NanomessageRPC extends NanoresourcePromise {
     assert(packet.name && typeof packet.name === 'string', 'name is required')
 
     if (packet.event && !timeout) {
-      return this.open().then(() => this[kNanomessage].send(packet))
+      return this.open().then(() => this[kNanomessage].send(packet, { args }))
     } else if (!timeout) {
       throw new NRPC_ERR_TIMEOUT_ZERO(timeout)
     }

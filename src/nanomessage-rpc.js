@@ -1,37 +1,45 @@
-import { EventEmitter } from 'events'
-import Emittery from 'emittery'
 import { Nanomessage } from 'nanomessage'
 import assert from 'nanocustomassert'
-import { NanoresourcePromise } from 'nanoresource-promise'
+import EventEmitter2 from 'eventemitter2'
 
-import Codec from './codec.js'
+import codec from './codec.js'
 import {
-  encodeError,
-  decodeError,
   NRPC_ERR_NAME_MISSING,
-  NRPC_ERR_RESPONSE_ERROR,
   NRPC_ERR_REQUEST_CANCELED,
-  NRPC_ERR_TIMEOUT_ZERO
+  NRPC_ERR_INTERNAL_EVENT
 } from './errors.js'
 
 const kNanomessage = Symbol('nrpc.nanomessage')
 const kOnmessage = Symbol('nrpc.onmessage')
 const kSubscribe = Symbol('nrpc.subscribe')
 const kActions = Symbol('nrpc.actions')
-const kEmittery = Symbol('nrpc.emittery')
 const kCreateRequest = Symbol('nrpc.createrequest')
 
 const noop = () => {}
 
-export class NanomessageRPC extends NanoresourcePromise {
+export const EVENTS = {
+  open: 'nrpc.open',
+  opened: 'nrpc.opened',
+  close: 'nrpc.close',
+  closed: 'nrpc.closed',
+  message: 'nrpc.message',
+  errorMessage: 'nrpc.error-message',
+  errorSubscribe: 'nrpc.error-subscribe',
+  errorSocket: 'nrpc.error-socket'
+}
+
+const EVENTS_INVERSE = Object.keys(EVENTS).reduce((events, prop) => {
+  events[EVENTS[prop]] = true
+  return events
+}, {})
+
+export class NanomessageRPC extends EventEmitter2 {
   constructor (opts = {}) {
     super()
 
-    const { onError = () => {}, valueEncoding, send, subscribe, open = noop, close = noop, timeout, ...nanomessageOpts } = opts
+    const { valueEncoding, send, subscribe, open = noop, close = noop, timeout, ...nanomessageOpts } = opts
 
     assert(send, 'send is required')
-
-    this.ee = new EventEmitter()
 
     this[kOnmessage] = this[kOnmessage].bind(this)
 
@@ -43,24 +51,36 @@ export class NanomessageRPC extends NanoresourcePromise {
       close: close.bind(this),
       onMessage: this[kOnmessage],
       subscribe: subscribe && this[kSubscribe](subscribe),
-      valueEncoding: new Codec(valueEncoding)
+      valueEncoding: codec(valueEncoding)
     })
-    this[kEmittery] = new Emittery()
+
     this[kActions] = new Map()
 
-    this._onError = onError
-
-    this.ee.on('error', err => {
-      this._onError(err)
-    })
+    this[kNanomessage].on('open', async () => super.emitAsync(EVENTS.open))
+    this[kNanomessage].on('opened', async () => super.emitAsync(EVENTS.opened))
+    this[kNanomessage].on('close', async () => super.emitAsync(EVENTS.close))
+    this[kNanomessage].on('closed', async () => super.emitAsync(EVENTS.closed))
+    this[kNanomessage].on('error-message', (...args) => super.emit(EVENTS.errorMessage, ...args))
   }
 
   get opened () {
     return this[kNanomessage].opened
   }
 
+  get opening () {
+    return this[kNanomessage].opening
+  }
+
   get closed () {
     return this[kNanomessage].closed
+  }
+
+  get closing () {
+    return this[kNanomessage].closing
+  }
+
+  get actives () {
+    return this[kNanomessage].actives
   }
 
   get requests () {
@@ -72,15 +92,15 @@ export class NanomessageRPC extends NanoresourcePromise {
   }
 
   get requestTimeout () {
-    return this[kNanomessage].timeout
+    return this[kNanomessage].requestTimeout
   }
 
   get concurrency () {
     return this[kNanomessage].concurrency
   }
 
-  get emittery () {
-    return this[kEmittery]
+  get nanomessage () {
+    return this[kNanomessage]
   }
 
   get registeredActions () {
@@ -91,16 +111,12 @@ export class NanomessageRPC extends NanoresourcePromise {
     return obj
   }
 
-  setRequestsTimeout (timeout) {
-    this[kNanomessage].setRequestsTimeout(timeout)
+  setRequestTimeout (timeout) {
+    this[kNanomessage].setRequestTimeout(timeout)
   }
 
   setConcurrency (concurrency) {
     this[kNanomessage].setConcurrency(concurrency)
-  }
-
-  onError (cb) {
-    this._onError = cb
   }
 
   action (name, handler) {
@@ -118,31 +134,17 @@ export class NanomessageRPC extends NanoresourcePromise {
   }
 
   emit (name, data, opts = {}) {
-    return this[kCreateRequest]({ name, data, event: true }, opts)
+    if (EVENTS_INVERSE[name]) throw new NRPC_ERR_INTERNAL_EVENT(name)
+    this[kCreateRequest]({ name, data, event: true }, { ...opts, timeout: false }).catch(() => {})
   }
 
-  on (...args) {
-    return this[kEmittery].on(...args)
+  async emitAsync (name, data, opts = {}) {
+    if (EVENTS_INVERSE[name]) throw new NRPC_ERR_INTERNAL_EVENT(name)
+    return this[kCreateRequest]({ name, data, event: true }, { ...opts })
   }
 
-  once (...args) {
-    return this[kEmittery].once(...args)
-  }
-
-  off (...args) {
-    return this[kEmittery].off(...args)
-  }
-
-  events (name) {
-    return this[kEmittery].events(name)
-  }
-
-  async processIncomingMessage (buf, opts = {}) {
-    await this.open()
-    return this[kNanomessage].processIncomingMessage(buf, {
-      onMessage: this[kOnmessage],
-      ...opts
-    })
+  async processIncomingMessage (...args) {
+    return this[kNanomessage].processIncomingMessage(...args)
   }
 
   setMessageHandler (handler) {
@@ -153,95 +155,62 @@ export class NanomessageRPC extends NanoresourcePromise {
     return message
   }
 
-  async _open () {
+  async open () {
     await this[kNanomessage].open()
-    this.ee.emit('opened')
   }
 
-  async _close () {
+  async close () {
     await this[kNanomessage].close()
-    this.ee.emit('closed')
   }
 
   [kSubscribe] (subscribe) {
     return (next) => {
       subscribe((data) => {
-        next(data).catch(err => {
-          process.nextTick(() => this.ee.emit('error', err))
-        })
+        next(data).catch(error => super.emit(EVENTS.errorSubscribe, error))
       })
     }
   }
 
-  [kCreateRequest] (packet, { timeout = this[kNanomessage].requestTimeout, signal, args }) {
+  async [kCreateRequest] (packet, { timeout = this.requestTimeout, signal, context }) {
     assert(packet.name && typeof packet.name === 'string', 'name is required')
 
     if (packet.event && !timeout) {
-      return this.open().then(() => this[kNanomessage].send(packet, { args }))
-    } else if (!timeout) {
-      throw new NRPC_ERR_TIMEOUT_ZERO(timeout)
+      return this[kNanomessage].send(packet, { context })
     }
 
-    let errCanceled
-    let request
-    const promise = this.open()
-      .then(() => {
-        if (errCanceled) throw errCanceled
-        request = this[kNanomessage].request(packet, { timeout, signal, args })
-        this.ee.emit('request-created', request, packet)
-        return request
-      })
-      .then(result => {
-        if (result.error) {
-          const { code, unformatMessage, args, stack } = result.data
-          const ErrorDecoded = decodeError(code, unformatMessage)
-          const err = new ErrorDecoded(...args)
-          err.stack = stack || err.stack
-          throw err
-        } else {
-          return result.data
-        }
-      })
+    const onCancel = (aborted) => new NRPC_ERR_REQUEST_CANCELED({ name: packet.name, event: packet.event, timeout, context, aborted })
 
-    promise.cancel = (err) => {
-      if (!err) {
-        err = new NRPC_ERR_REQUEST_CANCELED('request canceled')
-      } else if (typeof err === 'string') {
-        err = new NRPC_ERR_REQUEST_CANCELED(err)
-      }
-
-      if (request) return request.cancel(errCanceled)
-      errCanceled = err
-    }
-
-    return promise
+    const res = await this[kNanomessage].request(packet, { timeout, signal, onCancel, context })
+    return res.data
   }
 
   async [kOnmessage] (message, info) {
-    this.ee.emit('message', message)
     try {
+      super.emit(EVENTS.message, message, info)
+
       message = await this._onMessage(message, info)
 
+      let data
       if (message.event) {
-        await this[kEmittery].emit(message.name, message.data)
-        return { data: null }
+        if (info.ephemeral) {
+          super.emit(message.name, message.data, message, info)
+        } else {
+          data = await super.emitAsync(message.name, message.data, message, info)
+        }
+        return { data }
       }
 
       const action = this[kActions].get(message.name)
+      if (!action) throw new NRPC_ERR_NAME_MISSING(message.name)
 
-      if (!action) {
-        return encodeError(new NRPC_ERR_NAME_MISSING(message.name))
-      }
-
-      const result = await action(message.data)
-      return { data: result }
+      data = await action(message.data, message, info)
+      return { data }
     } catch (err) {
-      if (err.isNanoerror) {
-        return encodeError(err)
+      err.metadata = {
+        name: message.name,
+        event: message.event
       }
-      const rErr = new NRPC_ERR_RESPONSE_ERROR(err.message)
-      rErr.stack = err.stack || rErr.stack
-      return encodeError(rErr)
+      throw err
     }
   }
 }

@@ -1,65 +1,105 @@
-import bench from 'nanobench'
+import { Bench } from 'tinybench'
 
 import create from './create.js'
+import { createPackr } from '../src/index.js'
 
-bench('execute 10000 action calls x 2 peers', async function (b) {
-  const { alice, bob } = create()
-  await alice.open()
-  await bob.open()
+const context = {
+  basic: async () => {
+    const { alice, bob } = create()
 
-  alice.actions({
-    ping: () => null
-  })
+    alice.actions({
+      ping: () => 'pong'
+    })
 
-  bob.actions({
-    ping: () => null
-  })
+    bob.actions({
+      ping: () => 'pong'
+    })
 
-  b.start()
+    alice.on('ping', () => {
+      return 'pong'
+    })
 
-  await Promise.all([
-    Promise.all([...Array(10000).keys()].map(i => {
-      return alice.call('ping')
-    })),
-    Promise.all([...Array(10000).keys()].map(i => {
-      return bob.call('ping')
-    }))
-  ])
+    bob.on('ping', () => {
+      return 'pong'
+    })
 
-  b.end()
+    await alice.open()
+    await bob.open()
+
+    return { alice, bob }
+  },
+  sharedStructures: async () => {
+    const packr = createPackr({
+      structures: []
+    })
+
+    const valueEncoding = {
+      encode: (data) => packr.pack(data),
+      decode: (data) => packr.unpack(data)
+    }
+
+    const { alice, bob } = create({
+      valueEncoding
+    }, {
+      valueEncoding
+    })
+
+    alice.actions({
+      ping: () => null
+    })
+
+    bob.actions({
+      ping: () => null
+    })
+
+    await alice.open()
+
+    await bob.open()
+
+    return { alice, bob }
+  }
+}
+
+const bench = new Bench({
+  time: 0,
+  iterations: 10_000,
+  setup: async (task) => {
+    if (task.name.includes('sharedStructures')) {
+      task.context = await context.sharedStructures()
+    } else {
+      task.context = await context.basic()
+    }
+  }
 })
 
-bench('execute 10000 an event x 2 peers', async function (b) {
-  let aliceTotal = 0
-  let bobTotal = 0
-  let done = null
-  const waitFor = new Promise(resolve => {
-    done = resolve
+bench
+  .add('execute 10000 action calls x 2 peers', async function () {
+    const { alice } = this.context
+    const res = await alice.call('ping')
+    if (res !== 'pong') throw new Error('wrong')
   })
-  const { alice, bob } = create()
-  await alice.open()
-  await bob.open()
-
-  alice.on('ping', () => {
-    aliceTotal++
-    if (aliceTotal === 10000 && bobTotal === 10000) done()
+  .add('execute 10000 ephemeral messages x 2 peers', async function () {
+    const { alice } = this.context
+    const [res] = await alice.emitAsync('ping')
+    if (res !== 'pong') throw new Error('wrong')
   })
-
-  bob.on('ping', () => {
-    bobTotal++
-    if (aliceTotal === 10000 && bobTotal === 10000) done()
+  .add('execute 10000 requests x 2 peers using sharedStructures', async function () {
+    const { alice } = this.context
+    const res = await alice.call('ping')
+    if (res !== 'pong') throw new Error('wrong')
   })
 
-  b.start()
+await bench.run()
 
-  await Promise.all([
-    Promise.all([...Array(10000).keys()].map(i => {
-      return alice.emit('ping')
-    })),
-    Promise.all([...Array(10000).keys()].map(i => {
-      return bob.emit('ping')
-    }))
-  ])
-  await waitFor
-  b.end()
-})
+console.table(
+  bench.tasks.map(({ name, result }) => (result
+    ? ({
+        'Task Name': name,
+        'ops/sec': parseInt(result.hz, 10),
+        'Total Time (ms)': Math.round(result.totalTime),
+        'Average Time (ns)': Math.round(result.mean * 1000 * 1000),
+        Margin: `\xb1${result.rme.toFixed(2)}%`,
+        Samples: result.samples.length
+      })
+    : null))
+)

@@ -1,9 +1,15 @@
 import eos from 'end-of-stream'
+import { EVENTS } from './nanomessage-rpc.js'
 
 export function useSocket (socket, onCloseDestroyStream = true) {
   return {
     send (buf) {
-      if (socket.destroyed) return
+      if (socket.destroyed) {
+        this
+          .close()
+          .catch(err => this.emit(EVENTS.errorSocket, err))
+        return
+      }
       socket.write(buf)
     },
 
@@ -13,10 +19,11 @@ export function useSocket (socket, onCloseDestroyStream = true) {
     },
 
     open () {
+      this.socket = socket
       eos(socket, () => {
         this
           .close()
-          .catch(err => process.nextTick(() => this.ee.emit('error', err)))
+          .catch(err => this.emit(EVENTS.errorSocket, err))
       })
     },
 

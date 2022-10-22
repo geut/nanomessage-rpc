@@ -1,6 +1,7 @@
 # nanomessage-rpc (aka nrpc)
 
-[![Build Status](https://travis-ci.com/geut/nanomessage-rpc.svg?branch=master)](https://travis-ci.com/geut/nanomessage-rpc)
+![Test Status](https://github.com/geut/nanomessage-rpc/actions/workflows/test.yml/badge.svg)
+[![Coverage](https://raw.githubusercontent.com/geut/nanomessage-rpc/gh-pages/badges/coverage.svg?raw=true)](https://geut.github.io/nanomessage-rpc/)
 [![JavaScript Style Guide](https://img.shields.io/badge/code_style-standard-brightgreen.svg)](https://standardjs.com)
 [![standard-readme compliant](https://img.shields.io/badge/readme%20style-standard-brightgreen.svg?style=flat-square)](https://github.com/RichardLitt/standard-readme)
 
@@ -49,7 +50,7 @@ import { NanomessageRPC, useSocket } from 'nanomessage-rpc'
 })()
 ```
 
-Also it has an [emittery](https://github.com/sindresorhus/emittery) instance to emit events through the socket.
+Also it has an [EventEmitter2](https://github.com/EventEmitter2/EventEmitter2) instance to emit events through the socket.
 
 ```javascript
 ;(async () => {
@@ -62,7 +63,7 @@ Also it has an [emittery](https://github.com/sindresorhus/emittery) instance to 
   })
 
   // from the other rpc socket side
-  const result = await rpc.emit('ping') // 4
+  const result = await rpc.emitAsync('ping') // 4
 })()
 ```
 
@@ -104,7 +105,7 @@ Options include:
 - `subscribe: (next: function) => UnsubscribeFunction`: Define a handler to listen for incoming messages.
 - `timeout: 10000`: Time (ms) to wait for the response of a request.
 - `concurrency: { incoming: 256, outgoing: 256 }`: Defines how many requests do you want to run in concurrent.
-- `valueEncoding: buffer-json`: Defines an [abstract-encoding](https://github.com/mafintosh/abstract-encoding) to encode/decode messages in nanomessage.
+- `valueEncoding: msgpackr`: Defines an [abstract-encoding](https://github.com/mafintosh/abstract-encoding) to encode/decode messages in nanomessage.
 
 #### `rpc.open() => Promise`
 
@@ -138,14 +139,21 @@ Call an action an wait for the response.
 
 ### Events
 
-#### `rpc.emit(eventName, data, [opts]) => Promise`
+#### `rpc.emit(eventName, data, [opts])`
 
 Emit an event in the remote side.
 
 - `actionName: string`: Event name.
 - `data: (Buffer|Object|String)`: Event data.
+
+#### `rpc.emitAsync(eventName, data, [opts]) -> Promise`
+
+- `actionName: string`: Event name.
+- `data: (Buffer|Object|String)`: Event data.
 - `opts.timeout: number`: Define a custom timeout for the current request. Use timeout = 0 to not wait for a response.
 - `opts.signal: AbortSignal`: Set an abort signal object to cancel the request.
+
+Emit an event in the remote side and wait for a response.
 
 #### `rpc.on(eventName, handler) => unsubscribe`
 
@@ -153,38 +161,34 @@ Subscribe to a RPC event.
 
 Returns an unsubscribe method.
 
-#### `rpc.once(eventName) => Promise`
+#### `rpc.once(eventName)`
 
 Subscribe to a RPC event only once. It will be unsubscribed after the first event.
 
-Returns a promise for the event data when eventName is emitted.
+#### `rpc.waitFor(eventName) -> Promise`
+
+Subscribe to a RPC event only once and return a `Promise` to wait for the event.
+
+> Alternative: NanomessageRPC.once(rpc, eventName)
 
 #### `rpc.off(eventName)`
 
 Remove a RPC event subscription.
-
-#### `rpc.events(eventName)`
-
-Get an async iterator which buffers data each time a RPC event is emitted.
-
-Call `return()` on the iterator to remove the subscription.
-
-```javascript
-for await (const data of rpc.events('ping')) {
-  console.log(data)
-  if (disconnected) break
-}
 ```
 
 ### System events
 
-You can listen for internal events using `rpc.ee`.
+You can listen for internal events:
 
-- `on('error', (err) => {})`: When the internal RPC gets an error.
-- `on('opened', () => {})`: When the RPC was opened.
-- `on('closed', () => {})`: When the RPC was closed.
-- `on('request-created', (request, message) => {})`: When a request is created.
-- `on('message', (message) => {})`: When it comes a new message.
+- `on('nrpc.open', () => {})`: When the RPC was opened.
+- `on('nrpc.opening', () => {})`: When the RPC is opening.
+- `on('nrpc.close', () => {})`: When the RPC was closed.
+- `on('nrpc.closing', () => {})`: When the RPC is closing.
+- `on('nrpc.message', (message, info: RequestInfo) => {})`: When it comes a new message.
+- `on('nrpc.error-message', (err, info: RequestInfo) => {})`: When the internal RPC gets an error message.
+- `on('nrpc.error-subscribe', (err) => {})`: When the internal RPC gets an error subscription.
+- `on('nrpc.error-socket', (err) => {})`: When the internal RPC gets an error socket.
+- `on('nrpc.error*', (err) => {})`: Listen for all RPC errors.
 
 ## <a name="issues"></a> Issues
 
@@ -192,7 +196,7 @@ You can listen for internal events using `rpc.ee`.
 
 ## <a name="contribute"></a> Contributing
 
-:busts_in_silhouette: Ideas and contributions to the project are welcome. You must follow this [guideline](https://github.com/geut/nanomessage-rpc/blob/master/CONTRIBUTING.md).
+:busts_in_silhouette: Ideas and contributions to the project are welcome. You must follow this [guideline](https://github.com/geut/nanomessage-rpc/blob/main/CONTRIBUTING.md).
 
 ## License
 
